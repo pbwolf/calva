@@ -40,28 +40,52 @@ function getConfigPath(workspaceConfig: vscode.WorkspaceConfiguration): string |
 
 export type FormatterConfig = Partial<Awaited<ReturnType<typeof getConfig>>>;
 
-export async function getConfig(
+let cachedLspConfig = undefined;
+
+async function getAndCacheLspConfig(documentUri: vscode.Uri) {
+  const clientProvider = lsp.getClientProvider();
+  const client = clientProvider.getClientForDocumentUri(documentUri);
+  if (client && client.isRunning) {
+    lspFormatConfig = await lsp.api.getCljFmtConfig(client);
+    if (lspFormatConfig) {
+      cachedLspConfig = lspFormatConfig;
+    } else {
+      console.error(
+        'Fetching formatting settings from clojure-lsp failed. Check that you are running a version of clojure-lsp that provides "cljfmt-raw" in serverInfo.'
+      );
+    }
+    return lspFormatConfig;
+  }
+}
+
+function getCachedLspConfig(documentUri: vscode.Uri) {
+  // The Uri ensures LSP config could be cached per-document, if that were necessary.
+  if (cachedLspConfig) {
+    return cachedLspConfig;
+  } else {
+    console.log(
+      'LSP config is not cached yet, but I will get right on it. Try again in a little while.'
+    );
+    void getAndCacheLspConfig(documentUri);
+    return {};
+  }
+}
+
+// To enable synchronous commands to get an instant configuration,
+// might return undefined for LSP-based members until background query completes.
+export function getConfig(
   document: vscode.TextDocument = vscode.window.activeTextEditor?.document
-): Promise<{
+): {
   'format-as-you-type': boolean;
   'keep-comment-forms-trail-paren-on-own-line?': boolean;
   'cljfmt-options-string': string;
   'cljfmt-options': object;
-}> {
+} {
   const workspaceConfig = vscode.workspace.getConfiguration('calva.fmt');
   const configPath: string | undefined = getConfigPath(workspaceConfig);
 
   if (configPath === LSP_CONFIG_KEY && document) {
-    const clientProvider = lsp.getClientProvider();
-    const client = clientProvider.getClientForDocumentUri(document.uri);
-    if (client && client.isRunning) {
-      lspFormatConfig = await lsp.api.getCljFmtConfig(client);
-      if (!lspFormatConfig) {
-        console.error(
-          'Fetching formatting settings from clojure-lsp failed. Check that you are running a version of clojure-lsp that provides "cljfmt-raw" in serverInfo.'
-        );
-      }
-    }
+    lspFormatConfig = getCachedLspConfig(document.uri);
   }
   const cljfmtContent: string | undefined =
     configPath === LSP_CONFIG_KEY
