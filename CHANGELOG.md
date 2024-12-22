@@ -4,6 +4,8 @@ Changes to Calva.
 
 ## [Unreleased]
 
+- Internally to Paredit, enabled commands to run synchronously, in preparation for fixing [Paredit garbles while backspacing rapidly](https://github.com/BetterThanTomorrow/calva/issues/2611)
+ 
 ## [2.0.482] - 2024-12-03
 
 - Fix: [Added 'replace-refer-all-with-alias' & 'replace-refer-all-with-refer' actions to calva.](https://github.com/BetterThanTomorrow/calva/issues/2667) 
