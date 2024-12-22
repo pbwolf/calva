@@ -47,11 +47,13 @@ function multiCursorEnabled(override?: boolean): boolean {
 
 type PareditCommand = {
   command: string;
-  handler: (doc: EditableDocument, arg?: any) => void | Promise<any> | Thenable<any>;
+  handler?: (doc: EditableDocument, arg?: any) => void;
+  asyncHandler?: (doc: EditableDocument, arg?: any) => void | Promise<any> | Thenable<any>;
 };
 
 // only grab the custom, additional args after the first doc arg from the given command's handler
 type CommandArgOf<C extends PareditCommand> = Parameters<C['handler']>[1];
+type AsyncCommandArgOf<C extends PareditCommand> = Parameters<C['asyncHandler']>[1];
 
 const pareditCommands = [
   // NAVIGATING
@@ -302,7 +304,7 @@ const pareditCommands = [
   },
   {
     command: 'paredit.killRight',
-    handler: async (doc: EditableDocument, opts?: { copy: boolean }) => {
+    asyncHandler: async (doc: EditableDocument, opts?: { copy: boolean }) => {
       const range = paredit.forwardHybridSexpRange(doc);
       if (shouldKillAlsoCutToClipboard(opts?.copy)) {
         await copyRangeToClipboard(doc, range);
@@ -312,7 +314,7 @@ const pareditCommands = [
   },
   {
     command: 'paredit.killLeft',
-    handler: async (doc: EditableDocument, opts?: { copy: boolean }) => {
+    handler: (doc: EditableDocument, opts?: { copy: boolean }) => {
       return handlers.killLeft(
         doc,
         // TODO: actually implement multicursor
@@ -323,7 +325,7 @@ const pareditCommands = [
   },
   {
     command: 'paredit.killSexpForward',
-    handler: async (doc: EditableDocument, opts?: { copy: boolean }) => {
+    asyncHandler: async (doc: EditableDocument, opts?: { copy: boolean }) => {
       const range = paredit.forwardSexpRange(doc);
       if (shouldKillAlsoCutToClipboard(opts?.copy)) {
         await copyRangeToClipboard(doc, range);
@@ -333,7 +335,7 @@ const pareditCommands = [
   },
   {
     command: 'paredit.killSexpBackward',
-    handler: async (doc: EditableDocument, opts?: { copy: boolean }) => {
+    asyncHandler: async (doc: EditableDocument, opts?: { copy: boolean }) => {
       const range = paredit.backwardSexpRange(doc);
       if (shouldKillAlsoCutToClipboard(opts?.copy)) {
         await copyRangeToClipboard(doc, range);
@@ -343,7 +345,7 @@ const pareditCommands = [
   },
   {
     command: 'paredit.killListForward',
-    handler: async (doc: EditableDocument, opts?: { copy: boolean }) => {
+    asyncHandler: async (doc: EditableDocument, opts?: { copy: boolean }) => {
       const range = paredit.forwardListRange(doc);
       if (shouldKillAlsoCutToClipboard(opts?.copy)) {
         await copyRangeToClipboard(doc, range);
@@ -353,7 +355,7 @@ const pareditCommands = [
   }, // TODO: Implement with killRange
   {
     command: 'paredit.killListBackward',
-    handler: async (doc: EditableDocument, opts?: { copy: boolean }) => {
+    asyncHandler: async (doc: EditableDocument, opts?: { copy: boolean }) => {
       const range = paredit.backwardListRange(doc);
       if (shouldKillAlsoCutToClipboard(opts?.copy)) {
         await copyRangeToClipboard(doc, range);
@@ -363,7 +365,7 @@ const pareditCommands = [
   }, // TODO: Implement with killRange
   {
     command: 'paredit.spliceSexpKillForward',
-    handler: async (doc: EditableDocument, opts?: { copy: boolean }) => {
+    asyncHandler: async (doc: EditableDocument, opts?: { copy: boolean }) => {
       const range = paredit.forwardListRange(doc);
       if (shouldKillAlsoCutToClipboard(opts?.copy)) {
         await copyRangeToClipboard(doc, range);
@@ -375,7 +377,7 @@ const pareditCommands = [
   },
   {
     command: 'paredit.spliceSexpKillBackward',
-    handler: async (doc: EditableDocument, opts?: { copy: boolean }) => {
+    asyncHandler: async (doc: EditableDocument, opts?: { copy: boolean }) => {
       const range = paredit.backwardListRange(doc);
       if (shouldKillAlsoCutToClipboard(opts?.copy)) {
         await copyRangeToClipboard(doc, range);
@@ -446,13 +448,13 @@ const pareditCommands = [
   },
   {
     command: 'paredit.deleteForward',
-    handler: async (doc: EditableDocument) => {
+    asyncHandler: async (doc: EditableDocument) => {
       await paredit.deleteForward(doc);
     },
   },
   {
     command: 'paredit.deleteBackward',
-    handler: async (doc: EditableDocument) => {
+    asyncHandler: async (doc: EditableDocument) => {
       await paredit.backspace(doc, await config.getConfig());
     },
   },
@@ -470,13 +472,13 @@ const pareditCommands = [
   },
   {
     command: 'paredit.addRichComment',
-    handler: async (doc: EditableDocument) => {
+    asyncHandler: async (doc: EditableDocument) => {
       await paredit.addRichComment(doc);
     },
   },
   {
     command: 'paredit.insertSemiColon',
-    handler: async (doc: EditableDocument) => {
+    asyncHandler: async (doc: EditableDocument) => {
       await paredit.insertSemiColon(doc);
     },
   },
@@ -485,7 +487,7 @@ const pareditCommands = [
 //  ] as const satisfies readonly PareditCommand[];
 
 function wrapPareditCommand<C extends PareditCommand>(command: C) {
-  return async (arg: CommandArgOf<C>) => {
+  return (textEditor: vscode.TextEditor, builder: vscode.TextEditorEdit, arg: CommandArgOf<C>) => {
     try {
       const textEditor = window.activeTextEditor;
 
@@ -496,6 +498,24 @@ function wrapPareditCommand<C extends PareditCommand>(command: C) {
         return;
       }
       return command.handler(mDoc, arg);
+    } catch (e) {
+      console.error(e.message);
+    }
+  };
+}
+
+function wrapPareditAsyncCommand<C extends PareditCommand>(command: C) {
+  return async (arg: AsyncCommandArgOf<C>) => {
+    try {
+      const textEditor = window.activeTextEditor;
+
+      assertIsDefined(textEditor, 'Expected window to have an activeTextEditor!');
+
+      const mDoc: EditableDocument = docMirror.getDocument(textEditor.document);
+      if (!enabled || !languages.has(textEditor.document.languageId)) {
+        return;
+      }
+      return command.asyncHandler(mDoc, arg);
     } catch (e) {
       console.error(e.message);
     }
@@ -540,9 +560,15 @@ export function activate(context: ExtensionContext) {
         setKeyMapConf();
       }
     }),
-    ...pareditCommands.map((command) =>
-      commands.registerCommand(command.command, wrapPareditCommand(command))
-    ),
+    ...pareditCommands.map((command: PareditCommand) => {
+      if (command.handler) {
+        return commands.registerTextEditorCommand(command.command, wrapPareditCommand(command));
+      } else if (command.asyncHandler) {
+        return commands.registerCommand(command.command, wrapPareditAsyncCommand(command));
+      } else {
+        throw 'Unexpected';
+      }
+    }),
     commands.registerCommand('calva.diagnostics.printTextNotationFromDocument', () => {
       const doc = vscode.window.activeTextEditor?.document;
       if (doc && doc.languageId === 'clojure') {
