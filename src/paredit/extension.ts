@@ -8,6 +8,7 @@ import {
   ExtensionContext,
   workspace,
   ConfigurationChangeEvent,
+  TextEditorEdit,
 } from 'vscode';
 import * as paredit from '../cursor-doc/paredit';
 import * as handlers from './commands';
@@ -45,15 +46,20 @@ function multiCursorEnabled(override?: boolean): boolean {
   return override ?? workspace.getConfiguration().get('calva.paredit.multicursor');
 }
 
+// PareditCommand is for handlers that will not do anything async.
 type PareditCommand = {
   command: string;
-  handler?: (doc: EditableDocument, arg?: any) => void;
-  asyncHandler?: (doc: EditableDocument, arg?: any) => void | Promise<any> | Thenable<any>;
+  handler: (doc: EditableDocument, arg?: any, builder?: TextEditorEdit) => void;
+};
+// PareditAsyncCommand is for handlers that may do something async, e.g., TextEditor.edit
+type PareditAsyncCommand = {
+  command: string;
+  asyncHandler: (doc: EditableDocument, arg?: any) => Promise<any> | Thenable<any>;
 };
 
 // only grab the custom, additional args after the first doc arg from the given command's handler
 type CommandArgOf<C extends PareditCommand> = Parameters<C['handler']>[1];
-type AsyncCommandArgOf<C extends PareditCommand> = Parameters<C['asyncHandler']>[1];
+type AsyncCommandArgOf<C extends PareditAsyncCommand> = Parameters<C['asyncHandler']>[1];
 
 const pareditCommands = [
   // NAVIGATING
@@ -239,68 +245,68 @@ const pareditCommands = [
   // EDITING
   {
     command: 'paredit.slurpSexpForward',
-    handler: paredit.forwardSlurpSexp,
+    asyncHandler: paredit.forwardSlurpSexp,
   },
   {
     command: 'paredit.barfSexpForward',
-    handler: paredit.forwardBarfSexp,
+    asyncHandler: paredit.forwardBarfSexp,
   },
   {
     command: 'paredit.slurpSexpBackward',
-    handler: paredit.backwardSlurpSexp,
+    asyncHandler: paredit.backwardSlurpSexp,
   },
   {
     command: 'paredit.barfSexpBackward',
-    handler: paredit.backwardBarfSexp,
+    asyncHandler: paredit.backwardBarfSexp,
   },
   {
     command: 'paredit.splitSexp',
-    handler: paredit.splitSexp,
+    asyncHandler: paredit.splitSexp,
   },
   {
     command: 'paredit.joinSexp',
-    handler: paredit.joinSexp,
+    asyncHandler: paredit.joinSexp,
   },
   {
     command: 'paredit.spliceSexp',
-    handler: paredit.spliceSexp,
+    asyncHandler: paredit.spliceSexp,
   },
   // ['paredit.transpose', ], // TODO: Not yet implemented
   {
     command: 'paredit.raiseSexp',
-    handler: paredit.raiseSexp,
+    asyncHandler: paredit.raiseSexp,
   },
   {
     command: 'paredit.transpose',
-    handler: paredit.transpose,
+    asyncHandler: paredit.transpose,
   },
   {
     command: 'paredit.dragSexprBackward',
-    handler: paredit.dragSexprBackward,
+    asyncHandler: paredit.dragSexprBackward,
   },
   {
     command: 'paredit.dragSexprForward',
-    handler: paredit.dragSexprForward,
+    asyncHandler: paredit.dragSexprForward,
   },
   {
     command: 'paredit.dragSexprBackwardUp',
-    handler: paredit.dragSexprBackwardUp,
+    asyncHandler: paredit.dragSexprBackwardUp,
   },
   {
     command: 'paredit.dragSexprForwardDown',
-    handler: paredit.dragSexprForwardDown,
+    asyncHandler: paredit.dragSexprForwardDown,
   },
   {
     command: 'paredit.dragSexprForwardUp',
-    handler: paredit.dragSexprForwardUp,
+    asyncHandler: paredit.dragSexprForwardUp,
   },
   {
     command: 'paredit.dragSexprBackwardDown',
-    handler: paredit.dragSexprBackwardDown,
+    asyncHandler: paredit.dragSexprBackwardDown,
   },
   {
     command: 'paredit.convolute',
-    handler: paredit.convolute,
+    asyncHandler: paredit.convolute,
   },
   {
     command: 'paredit.killRight',
@@ -314,7 +320,7 @@ const pareditCommands = [
   },
   {
     command: 'paredit.killLeft',
-    handler: (doc: EditableDocument, opts?: { copy: boolean }) => {
+    asyncHandler: (doc: EditableDocument, opts?: { copy: boolean }) => {
       return handlers.killLeft(
         doc,
         // TODO: actually implement multicursor
@@ -389,59 +395,59 @@ const pareditCommands = [
   },
   {
     command: 'paredit.wrapAroundParens',
-    handler: (doc: EditableDocument) => {
+    asyncHandler: (doc: EditableDocument) => {
       return paredit.wrapSexpr(doc, '(', ')');
     },
   },
   {
     command: 'paredit.wrapAroundSquare',
-    handler: (doc: EditableDocument) => {
+    asyncHandler: (doc: EditableDocument) => {
       return paredit.wrapSexpr(doc, '[', ']');
     },
   },
   {
     command: 'paredit.wrapAroundCurly',
-    handler: (doc: EditableDocument) => {
+    asyncHandler: (doc: EditableDocument) => {
       return paredit.wrapSexpr(doc, '{', '}');
     },
   },
   {
     command: 'paredit.wrapAroundQuote',
-    handler: (doc: EditableDocument) => {
+    asyncHandler: (doc: EditableDocument) => {
       return paredit.wrapSexpr(doc, '"', '"');
     },
   },
   {
     command: 'paredit.rewrapParens',
-    handler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
+    asyncHandler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
       const isMulti = multiCursorEnabled(opts?.multicursor);
       return handlers.rewrapParens(doc, isMulti);
     },
   },
   {
     command: 'paredit.rewrapSquare',
-    handler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
+    asyncHandler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
       const isMulti = multiCursorEnabled(opts?.multicursor);
       return handlers.rewrapSquare(doc, isMulti);
     },
   },
   {
     command: 'paredit.rewrapCurly',
-    handler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
+    asyncHandler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
       const isMulti = multiCursorEnabled(opts?.multicursor);
       return handlers.rewrapCurly(doc, isMulti);
     },
   },
   {
     command: 'paredit.rewrapSet',
-    handler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
+    asyncHandler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
       const isMulti = multiCursorEnabled(opts?.multicursor);
       return handlers.rewrapSet(doc, isMulti);
     },
   },
   {
     command: 'paredit.rewrapQuote',
-    handler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
+    asyncHandler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
       const isMulti = multiCursorEnabled(opts?.multicursor);
       return handlers.rewrapQuote(doc, isMulti);
     },
@@ -460,13 +466,13 @@ const pareditCommands = [
   },
   {
     command: 'paredit.forceDeleteForward',
-    handler: () => {
+    asyncHandler: () => {
       return vscode.commands.executeCommand('deleteRight');
     },
   },
   {
     command: 'paredit.forceDeleteBackward',
-    handler: () => {
+    asyncHandler: () => {
       return vscode.commands.executeCommand('deleteLeft');
     },
   },
@@ -497,14 +503,14 @@ function wrapPareditCommand<C extends PareditCommand>(command: C) {
       if (!enabled || !languages.has(textEditor.document.languageId)) {
         return;
       }
-      return command.handler(mDoc, arg);
+      return command.handler(mDoc, arg, builder);
     } catch (e) {
       console.error(e.message);
     }
   };
 }
 
-function wrapPareditAsyncCommand<C extends PareditCommand>(command: C) {
+function wrapPareditAsyncCommand<C extends PareditAsyncCommand>(command: C) {
   return async (arg: AsyncCommandArgOf<C>) => {
     try {
       const textEditor = window.activeTextEditor;
@@ -560,11 +566,17 @@ export function activate(context: ExtensionContext) {
         setKeyMapConf();
       }
     }),
-    ...pareditCommands.map((command: PareditCommand) => {
-      if (command.handler) {
-        return commands.registerTextEditorCommand(command.command, wrapPareditCommand(command));
-      } else if (command.asyncHandler) {
-        return commands.registerCommand(command.command, wrapPareditAsyncCommand(command));
+    ...pareditCommands.map((command) => {
+      if (command['handler']) {
+        return commands.registerTextEditorCommand(
+          command.command,
+          wrapPareditCommand(command as PareditCommand)
+        );
+      } else if (command['asyncHandler']) {
+        return commands.registerCommand(
+          command.command,
+          wrapPareditAsyncCommand(command as PareditAsyncCommand)
+        );
       } else {
         throw 'Unexpected';
       }
