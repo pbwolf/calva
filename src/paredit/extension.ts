@@ -453,7 +453,7 @@ const pareditCommands = [
   {
     command: 'paredit.deleteBackward',
     handler: async (doc: EditableDocument) => {
-      await paredit.backspace(doc, await config.getConfig());
+      await paredit.backspace(doc, config.getConfig());
     },
   },
   {

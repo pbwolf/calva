@@ -15,13 +15,13 @@ const FormatDepthDefaults = {
   defprotocol: 2,
 };
 
-export async function indentPosition(position: vscode.Position, document: vscode.TextDocument) {
+export /*async*/ function indentPosition(position: vscode.Position, document: vscode.TextDocument) {
   const editor = util.getActiveTextEditor();
   const pos = new vscode.Position(position.line, 0);
   const indent = getIndent(
     getDocument(document).model.lineInputModel,
     getDocumentOffset(document, position),
-    await config.getConfig(document)
+    config.getConfig(document)
   );
   const newPosition = new vscode.Position(position.line, indent);
   const delta = document.lineAt(position.line).firstNonWhitespaceCharacterIndex - indent;
@@ -97,7 +97,7 @@ export async function formatRange(document: vscode.TextDocument, range: vscode.R
   return vscode.workspace.applyEdit(wsEdit);
 }
 
-export async function formatPositionInfo(
+export /*async*/ function formatPositionInfo(
   editor: vscode.TextEditor,
   onType: boolean = false,
   extraConfig: CljFmtConfig = {}
@@ -122,7 +122,7 @@ export async function formatPositionInfo(
     _convertEolNumToStringNotation(doc.eol),
     onType,
     {
-      ...(await config.getConfig()),
+      ...config.getConfig(),
       ...extraConfig,
       'comment-form?': cursor.getFunctionName() === 'comment',
     }
@@ -207,7 +207,7 @@ export async function formatPosition(
   extraConfig: CljFmtConfig = {}
 ): Promise<boolean> {
   const doc: vscode.TextDocument = editor.document,
-    formattedInfo = await formatPositionInfo(editor, onType, extraConfig);
+    formattedInfo = formatPositionInfo(editor, onType, extraConfig);
   if (formattedInfo && formattedInfo.previousText != formattedInfo.formattedText) {
     return editor
       .edit(
@@ -262,11 +262,11 @@ export function trimWhiteSpacePositionCommand(editor: vscode.TextEditor) {
   void formatPosition(editor, false, { 'remove-multiple-non-indenting-spaces?': true });
 }
 
-export async function formatCode(code: string, eol: number) {
+export /*async*/ function formatCode(code: string, eol: number) {
   const d = {
     'range-text': code,
     eol: _convertEolNumToStringNotation(eol),
-    config: await config.getConfig(),
+    config: config.getConfig(),
   };
   const result = jsify(formatText(d));
   if (!result['error']) {
@@ -277,7 +277,7 @@ export async function formatCode(code: string, eol: number) {
   }
 }
 
-async function _formatRange(
+/*async*/ function _formatRange(
   rangeText: string,
   allText: string,
   range: number[],
@@ -288,7 +288,7 @@ async function _formatRange(
     'all-text': allText,
     range: range,
     eol: eol,
-    config: await config.getConfig(),
+    config: config.getConfig(),
   };
   const result = jsify(formatTextAtRange(d));
   if (!result['error']) {
