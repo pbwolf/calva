@@ -84,7 +84,7 @@ export class DocumentModel implements EditableModel {
     return editor
       .edit(
         (builder) => {
-          this.editNow(modelEdits, { builder: builder, ...options });
+          this.editNowTextOnly(modelEdits, { builder: builder, ...options });
         },
         { undoStopBefore, undoStopAfter: false }
       )
