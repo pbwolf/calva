@@ -1110,7 +1110,10 @@ export async function backspace(
   end: number = doc.selections[0].active
 ): Promise<boolean> {
   if (start != end) {
-    return doc.backspace();
+    const [left, right] = [Math.min(start), Math.max(end)];
+    return doc.model.edit([new ModelEdit('deleteRange', [left, right - left])], {
+      selections: [new ModelEditSelection(left)],
+    });
   } else {
     const cursor = doc.getTokenCursor(start);
     const isTopLevel = doc.getTokenCursor(end).atTopLevel();
