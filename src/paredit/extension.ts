@@ -50,8 +50,15 @@ type PareditCommand = {
   handler: (doc: EditableDocument, arg?: any) => void | Promise<any> | Thenable<any>;
 };
 
+type PareditCommandNow = {
+  command: string;
+  handlerNow: (doc: EditableDocument, arg?: any, builder?: vscode.TextEditorEdit) => void;
+};
+
 // only grab the custom, additional args after the first doc arg from the given command's handler
 type CommandArgOf<C extends PareditCommand> = Parameters<C['handler']>[1];
+
+type CommandNowArgOf<C extends PareditCommandNow> = Parameters<C['handlerNow']>[1];
 
 const pareditCommands = [
   // NAVIGATING
@@ -452,8 +459,8 @@ const pareditCommands = [
   },
   {
     command: 'paredit.deleteBackward',
-    handler: async (doc: EditableDocument) => {
-      await paredit.backspace(doc, await config.getConfig());
+    handlerNow: (doc: EditableDocument, builder: vscode.TextEditorEdit) => {
+      paredit.backspace(doc, builder, config.getConfigNow());
     },
   },
   {
@@ -502,6 +509,24 @@ function wrapPareditCommand<C extends PareditCommand>(command: C) {
   };
 }
 
+function wrapPareditCommandNow<C extends PareditCommandNow>(command: C) {
+  return (
+    textEditor: vscode.TextEditor,
+    builder: vscode.TextEditorEdit,
+    arg: CommandNowArgOf<C>
+  ) => {
+    try {
+      const mDoc: EditableDocument = docMirror.getDocument(textEditor.document);
+      if (!enabled || !languages.has(textEditor.document.languageId)) {
+        return;
+      }
+      return command.handlerNow(mDoc, builder);
+    } catch (e) {
+      console.error(e.message);
+    }
+  };
+}
+
 export function getKeyMapConf(): string {
   const keyMap = workspace.getConfiguration().get('calva.paredit.defaultKeyMap');
   return String(keyMap);
@@ -540,9 +565,21 @@ export function activate(context: ExtensionContext) {
         setKeyMapConf();
       }
     }),
-    ...pareditCommands.map((command) =>
-      commands.registerCommand(command.command, wrapPareditCommand(command))
-    ),
+    ...pareditCommands.map((command) => {
+      if (command['handler']) {
+        return commands.registerCommand(
+          command.command,
+          wrapPareditCommand(command as PareditCommand)
+        );
+      } else if (command['handlerNow']) {
+        return commands.registerTextEditorCommand(
+          command.command,
+          wrapPareditCommandNow(command as PareditCommandNow)
+        );
+      } else {
+        return undefined;
+      }
+    }),
     commands.registerCommand('calva.diagnostics.printTextNotationFromDocument', () => {
       const doc = vscode.window.activeTextEditor?.document;
       if (doc && doc.languageId === 'clojure') {
