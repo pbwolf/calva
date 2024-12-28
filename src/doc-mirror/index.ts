@@ -29,27 +29,48 @@ export class DocumentModel implements EditableModel {
     return this.lineEndingLength == 2 ? '\r\n' : '\n';
   }
 
+  private editNowTextOnly(
+    modelEdits: ModelEdit<ModelEditFunction>[],
+    options: ModelEditOptions
+  ): void {
+    const builder = options.builder;
+    for (const modelEdit of modelEdits) {
+      switch (modelEdit.editFn) {
+        case 'insertString':
+          this.insertEdit.apply(this, [builder, ...modelEdit.args]);
+          break;
+        case 'changeRange':
+          this.replaceEdit.apply(this, [builder, ...modelEdit.args]);
+          break;
+        case 'deleteRange':
+          this.deleteEdit.apply(this, [builder, ...modelEdit.args]);
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  editNow(modelEdits: ModelEdit<ModelEditFunction>[], options: ModelEditOptions): void {
+    this.editNowTextOnly(modelEdits, options);
+    if (options.selections) {
+      this.document.selections = options.selections;
+    }
+    // TODO formatting in editNow
+    //if (!options.skipFormat) {
+    //  return formatter.formatPosition(editor, true, {
+    //    'format-depth': options.formatDepth ?? 1,
+    //  });
+    //}
+  }
+
   edit(modelEdits: ModelEdit<ModelEditFunction>[], options: ModelEditOptions): Thenable<boolean> {
     const editor = utilities.getActiveTextEditor(),
       undoStopBefore = !!options.undoStopBefore;
     return editor
       .edit(
         (builder) => {
-          for (const modelEdit of modelEdits) {
-            switch (modelEdit.editFn) {
-              case 'insertString':
-                this.insertEdit.apply(this, [builder, ...modelEdit.args]);
-                break;
-              case 'changeRange':
-                this.replaceEdit.apply(this, [builder, ...modelEdit.args]);
-                break;
-              case 'deleteRange':
-                this.deleteEdit.apply(this, [builder, ...modelEdit.args]);
-                break;
-              default:
-                break;
-            }
-          }
+          this.editNow(modelEdits, { builder: builder, ...options });
         },
         { undoStopBefore, undoStopAfter: false }
       )
