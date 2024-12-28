@@ -8,6 +8,7 @@ import {
   EditableDocument,
   EditableModel,
   ModelEditOptions,
+  ModelEditNowOptions,
   LineInputModel,
   ModelEditSelection,
   ModelEditFunction,
@@ -29,27 +30,32 @@ export class DocumentModel implements EditableModel {
     return this.lineEndingLength == 2 ? '\r\n' : '\n';
   }
 
+  editNow(modelEdits: ModelEdit<ModelEditFunction>[], options: ModelEditNowOptions): void {
+    const builder = options.builder;
+    for (const modelEdit of modelEdits) {
+      switch (modelEdit.editFn) {
+        case 'insertString':
+          this.insertEdit.apply(this, [builder, ...modelEdit.args]);
+          break;
+        case 'changeRange':
+          this.replaceEdit.apply(this, [builder, ...modelEdit.args]);
+          break;
+        case 'deleteRange':
+          this.deleteEdit.apply(this, [builder, ...modelEdit.args]);
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
   edit(modelEdits: ModelEdit<ModelEditFunction>[], options: ModelEditOptions): Thenable<boolean> {
     const editor = utilities.getActiveTextEditor(),
       undoStopBefore = !!options.undoStopBefore;
     return editor
       .edit(
         (builder) => {
-          for (const modelEdit of modelEdits) {
-            switch (modelEdit.editFn) {
-              case 'insertString':
-                this.insertEdit.apply(this, [builder, ...modelEdit.args]);
-                break;
-              case 'changeRange':
-                this.replaceEdit.apply(this, [builder, ...modelEdit.args]);
-                break;
-              case 'deleteRange':
-                this.deleteEdit.apply(this, [builder, ...modelEdit.args]);
-                break;
-              default:
-                break;
-            }
-          }
+          this.editNow(modelEdits, { builder: builder });
         },
         { undoStopBefore, undoStopAfter: false }
       )

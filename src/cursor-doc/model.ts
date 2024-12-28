@@ -2,7 +2,7 @@ import { Scanner, Token, ScannerState } from './clojure-lexer';
 import { LispTokenCursor } from './token-cursor';
 import { deepEqual as equal } from '../util/object';
 import { isNumber, isUndefined } from 'lodash';
-import { TextDocument, Selection } from 'vscode';
+import { TextDocument, Selection, TextEditorEdit } from 'vscode';
 import _ = require('lodash');
 
 let scanner: Scanner;
@@ -246,6 +246,10 @@ export type ModelEditOptions = {
   selections?: ModelEditSelection[];
 };
 
+export type ModelEditNowOptions = {
+  builder?: TextEditorEdit;
+};
+
 export interface EditableModel {
   readonly lineEndingLength: number;
   readonly lineEnding: string;
@@ -256,6 +260,14 @@ export interface EditableModel {
    * @param edits
    */
   edit: (edits: ModelEdit<ModelEditFunction>[], options: ModelEditOptions) => Thenable<boolean>;
+
+  /**
+   * Performs a model edit batch "synchronously",
+   * using the TextEditorEdit at the 'builder' key of options if applicable.
+   * For some EditableModel's these are performed as one atomic set of edits.
+   * @param edits
+   */
+  editNow: (edits: ModelEdit<ModelEditFunction>[], options: ModelEditNowOptions) => void;
 
   getText: (start: number, end: number, mustBeWithin?: boolean) => string;
   getLineText: (line: number) => string;
@@ -525,29 +537,49 @@ export class LineInputModel implements EditableModel {
    * Doesn't need to be atomic in the LineInputModel.
    * @param edits
    */
+  editNow(edits: ModelEdit<ModelEditFunction>[], options: ModelEditNowOptions): void {
+    let ultimateSelection = undefined;
+    for (const edit of edits) {
+      switch (edit.editFn) {
+        case 'insertString': {
+          const fn = this.insertString;
+          ultimateSelection = this.insertString(
+            ...(edit.args.slice(0, 4) as Parameters<typeof fn>)
+          );
+          break;
+        }
+        case 'changeRange': {
+          const fn = this.changeRange;
+          ultimateSelection = this.changeRange(...(edit.args.slice(0, 5) as Parameters<typeof fn>));
+          break;
+        }
+        case 'deleteRange': {
+          const fn = this.deleteRange;
+          ultimateSelection = this.deleteRange(...(edit.args.slice(0, 5) as Parameters<typeof fn>));
+          break;
+        }
+        default:
+          break;
+      }
+    }
+    // Mimic TextEditorEdit, which leaves the selection at the end of the insertion or start of deletion:
+    if (this.document && ultimateSelection) {
+      if (ultimateSelection['notice']) {
+        console.log(ultimateSelection['notice']);
+        delete ultimateSelection['notice'];
+      }
+      this.document.selections = [ultimateSelection];
+    }
+  }
+
+  /**
+   * Performs a model edit batch.
+   * Doesn't need to be atomic in the LineInputModel.
+   * @param edits
+   */
   edit(edits: ModelEdit<ModelEditFunction>[], options: ModelEditOptions): Thenable<boolean> {
     return new Promise((resolve, reject) => {
-      for (const edit of edits) {
-        switch (edit.editFn) {
-          case 'insertString': {
-            const fn = this.insertString;
-            this.insertString(...(edit.args.slice(0, 4) as Parameters<typeof fn>));
-            break;
-          }
-          case 'changeRange': {
-            const fn = this.changeRange;
-            this.changeRange(...(edit.args.slice(0, 5) as Parameters<typeof fn>));
-            break;
-          }
-          case 'deleteRange': {
-            const fn = this.deleteRange;
-            this.deleteRange(...(edit.args.slice(0, 5) as Parameters<typeof fn>));
-            break;
-          }
-          default:
-            break;
-        }
-      }
+      this.editNow(edits, {});
       if (this.document && options.selections) {
         this.document.selections = options.selections;
       }
@@ -566,7 +598,7 @@ export class LineInputModel implements EditableModel {
    * @param oldSelection the old selection
    * @param newSelection the new selection
    */
-  private changeRange(
+  changeRangeOnly(
     start: number,
     end: number,
     text: string,
@@ -625,6 +657,9 @@ export class LineInputModel implements EditableModel {
       this.markDirty(startLine + i);
     }
 
+    // Mimic TextEditorEdit, which does not move the selection?
+    return undefined; //@@@this.document.selections = [new ModelEditSelection(startPos + text.length)];
+
     // console.log("Parsing took: ", new Date().valueOf() - t1.valueOf());
   }
 
@@ -643,9 +678,10 @@ export class LineInputModel implements EditableModel {
     text: string,
     oldSelection?: ModelEditRange,
     newSelection?: ModelEditRange
-  ): number {
-    this.changeRange(offset, offset, text, oldSelection, newSelection);
-    return text.length;
+  ): ModelEditSelection {
+    this.changeRangeOnly(offset, offset, text, oldSelection, newSelection);
+    // Mimic TextEditorEdit, which leaves the selection at the end of the insertion:
+    return new ModelEditSelection(offset + text.length);
   }
 
   /**
@@ -662,8 +698,40 @@ export class LineInputModel implements EditableModel {
     count: number,
     oldSelection?: ModelEditRange,
     newSelection?: ModelEditRange
-  ) {
-    this.changeRange(offset, offset + count, '', oldSelection, newSelection);
+  ): ModelEditSelection {
+    this.changeRangeOnly(offset, offset + count, '', oldSelection, newSelection);
+    // Mimic TextEditorEdit, which leaves the selection at the start of the deletion:
+    return new ModelEditSelection(offset);
+  }
+
+  changeRange(
+    start: number,
+    end: number,
+    text: string,
+    oldSelection?: ModelEditRange,
+    newSelection?: ModelEditRange
+  ): ModelEditSelection {
+    // Mimic TextEditorEdit: If range is just a point, treat as insertion and move the point:
+    if (start == end) {
+      const motion = this.insertString(start, text, oldSelection, newSelection);
+      /*motion['notice'] =
+        'Warning! changeRange of a point ' +
+        start +
+        ' ' +
+        end +
+        ' delegates to insertString and moves the point! ' +
+        text.length +
+        '>' +
+        text +
+        '<' +
+        ' in ' +
+        typeof this.document;*/
+      return undefined; // motion;
+    } else {
+      this.changeRangeOnly(start, end, text, oldSelection, newSelection);
+      // Mimic TextEditorEdit, which leaves the selection wherever it was:
+      return undefined;
+    }
   }
 
   /** Return the offset of the last character in this model. */

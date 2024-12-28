@@ -35,3 +35,25 @@
                [:foo :foo :foo]
                [:foo :bar :foo]
                (range))))
+
+(comment
+  
+  (println (str)#(foo))
+
+  (println (str) "foo")
+
+  
+  "(str) foo"
+
+  (str) "foo"
+
+slurps form before string
+  (str) "fo|o"
+  "(str) fo|o"
+
+
+  backwardBarfSexp
+  ((str) fo|o)
+  expect
+  (str) (fo|o)
+  )

@@ -185,6 +185,7 @@ async function activate(context: vscode.ExtensionContext) {
     try {
       void fmt.activate(context);
     } catch (e) {
+      console.dir(e);
       console.error('Failed activating Formatter: ' + e.message);
     }
   } else {

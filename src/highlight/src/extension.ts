@@ -416,7 +416,7 @@ function updateRainbowBrackets() {
     }
   }
   activeEditor.setDecorations(misplacedType, misplaced);
-  mirrorDoc["highlightFoundMisplacedBrackets"] = misplaced.length; // help tests 'see' that misplaced brackets are highlighted
+  mirrorDoc['highlightFoundMisplacedBrackets'] = misplaced.length; // help tests 'see' that misplaced brackets are highlighted
   activeEditor.setDecorations(commentFormType, comment_forms);
   activeEditor.setDecorations(ignoredFormType, ignores);
   activeEditor.setDecorations(ignoredTopLevelFormType, topLevelIgnores);

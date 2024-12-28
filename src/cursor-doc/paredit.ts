@@ -1,3 +1,4 @@
+import { Position, TextEditorEdit, window } from 'vscode';
 import { FormatterConfig } from '../formatter-config';
 import { validPair } from './clojure-lexer';
 import {
@@ -930,17 +931,31 @@ export async function forwardSlurpSexp(
         replacedText.indexOf('\n') >= 0
           ? ([currentCloseOffset, currentCloseOffset + close.length, ''] as const)
           : ([wsStartOffset, wsEndOffset, ' '] as const);
+      const edits = [
+        new ModelEdit('insertString', [newCloseOffset, close]),
+        new ModelEdit('changeRange', changeArgs),
+      ];
+      const editOptions = {
+        ...{
+          undoStopBefore: true,
+          skipFormat: true, // @@@
+        },
+        ...extraOpts,
+      };
+      //console.log('forwardSlurpSexp');
+      //console.dir(edits);
+      //console.dir(editOptions);
       return doc.model.edit(
-        [
+        edits,
+        /*[
           new ModelEdit('insertString', [newCloseOffset, close]),
           new ModelEdit('changeRange', changeArgs),
-        ],
-        {
+        ]*/ editOptions /*{
           ...{
             undoStopBefore: true,
           },
           ...extraOpts,
-        }
+        }*/
       );
     } else {
       const formatDepth = extraOpts['formatDepth'] ? extraOpts['formatDepth'] : 1;
@@ -966,17 +981,31 @@ export async function backwardSlurpSexp(
     cursor.backwardSexp(true, true);
     cursor.forwardWhitespace(false);
     if (offset !== cursor.offsetStart) {
+      const edits = [
+        new ModelEdit('deleteRange', [offset, tk.raw.length]),
+        new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart, open]),
+      ];
+      const editOptions = {
+        ...{
+          undoStopBefore: true,
+          skipFormat: true, // @@@
+        },
+        ...extraOpts,
+      };
+      //console.log('backwardSlurpSexp');
+      //console.dir(edits);
+      //console.dir(editOptions);
       return doc.model.edit(
-        [
+        edits,
+        /*[
           new ModelEdit('deleteRange', [offset, tk.raw.length]),
           new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart, open]),
-        ],
-        {
+        ]*/ editOptions /*{
           ...{
             undoStopBefore: true,
           },
           ...extraOpts,
-        }
+        }*/
       );
     } else {
       const formatDepth = extraOpts['formatDepth'] ? extraOpts['formatDepth'] : 1;
@@ -992,23 +1021,62 @@ export async function forwardBarfSexp(
   start: number = doc.selections[0].active
 ) {
   const cursor = doc.getTokenCursor(start);
+  const whatsAtPoint = cursor.getToken().raw;
+  console.log('forwardBarfSexp. cursor.getToken().raw=' + cursor.getToken().raw + '!');
   cursor.forwardList();
   if (cursor.getToken().type == 'close') {
     const offset = cursor.offsetStart,
       close = cursor.getToken().raw;
     cursor.backwardSexp(true, true);
     cursor.backwardWhitespace();
-    return doc.model.edit(
-      [
-        new ModelEdit('deleteRange', [offset, close.length]),
-        new ModelEdit('insertString', [cursor.offsetStart, close]),
-      ],
+    console.log("forwardBarfSexp. close='" + close + "'");
+    const edits = [
+      new ModelEdit('deleteRange', [offset, close.length]),
+      //new ModelEdit('insertString', [cursor.offsetStart, close]),
+      //@@@ Oops. changeRange offsetStart offsetStart ')' boils down to insert & moves the point.
+      //new ModelEdit('changeRange', [
+      //  cursor.offsetStart,
+      //  cursor.offsetStart + whatsAtPoint.length,
+      //  close + whatsAtPoint,
+      //]
+      new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart, close]),
+    ];
+    const editOptions =
       start >= cursor.offsetStart
         ? {
-            selections: [new ModelEditSelection(cursor.offsetStart)],
-            formatDepth: 2,
+            //selections: [new ModelEditSelection(cursor.offsetStart)],
+            skipFormat: true, // @@@
+            //formatDepth: 2,
           }
-        : { formatDepth: 2 }
+        : {
+            skipFormat: true, // @@@
+            //formatDepth: 2
+          };
+    //console.log('forwardBarfSexp');
+    //console.dir(edits);
+    //console.dir(editOptions);
+    return doc.model.edit(
+      edits,
+      /*      [
+        new ModelEdit('deleteRange', [offset, close.length]),
+        //new ModelEdit('insertString', [cursor.offsetStart, close]),
+        //@@@ Oops. changeRange offsetStart offsetStart ')' boils down to insert & moves the point.
+        new ModelEdit('changeRange', [
+          cursor.offsetStart,
+          cursor.offsetStart + 1,
+          close + whatsAtPoint,
+        ]),
+      ]*/ editOptions
+      /*start >= cursor.offsetStart
+        ? {
+            //selections: [new ModelEditSelection(cursor.offsetStart)],
+            skipFormat: true,
+            //formatDepth: 2,
+          }
+        : {
+            skipFormat: true,
+            //formatDepth: 2
+          }*/
     );
   }
 }
@@ -1030,14 +1098,19 @@ export async function backwardBarfSexp(
     return doc.model.edit(
       [
         new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart, close]),
-        new ModelEdit('deleteRange', [offset, tk.raw.length]),
+        //new ModelEdit('deleteRange', [offset, tk.raw.length]),
+        new ModelEdit('changeRange', [offset, offset + tk.raw.length, '']), //???@@@
       ],
       start <= cursor.offsetStart
         ? {
-            selections: [new ModelEditSelection(cursor.offsetStart)],
+            //selections: [new ModelEditSelection(cursor.offsetStart)],
+            skipFormat: true, //@@@
+            //formatDepth: 2,
+          }
+        : {
+            skipFormat: true, //????@@@
             formatDepth: 2,
           }
-        : { formatDepth: 2 }
     );
   }
 }
@@ -1083,34 +1156,34 @@ function onlyWhitespaceLeftOfCursor(offset, cursor: LispTokenCursor) {
 }
 
 function backspaceOnWhitespaceEdit(
+  builder: TextEditorEdit,
   doc: EditableDocument,
   cursor: LispTokenCursor,
   config?: FormatterConfig
 ) {
   const changeArgs = backspaceOnWhitespace(doc, cursor, config);
-  return doc.model.edit(
+  doc.model.editNow(
     [
-      new ModelEdit('changeRange', [
-        changeArgs.start,
-        changeArgs.end,
-        ' '.repeat(changeArgs.indent),
-      ]),
+      new ModelEdit('deleteRange', [changeArgs.end, changeArgs.start - changeArgs.end]),
+      new ModelEdit('insertString', [changeArgs.end, ' '.repeat(changeArgs.indent)]),
     ],
     {
-      selections: [new ModelEditSelection(changeArgs.end + changeArgs.indent)],
-      skipFormat: true,
+      builder: builder,
     }
   );
 }
 
-export async function backspace(
+export function backspace(
   doc: EditableDocument,
+  builder?: TextEditorEdit,
   config?: FormatterConfig,
   start: number = doc.selections[0].anchor,
   end: number = doc.selections[0].active
-): Promise<boolean> {
+): void {
   if (start != end) {
-    return doc.backspace();
+    doc.model.editNow([new ModelEdit('deleteRange', [start, end - start])], {
+      builder: builder,
+    });
   } else {
     const cursor = doc.getTokenCursor(start);
     const isTopLevel = doc.getTokenCursor(end).atTopLevel();
@@ -1120,20 +1193,22 @@ export async function backspace(
         ? nextToken // we are “in” a token
         : cursor.getPrevToken(); // we are “between” tokens
     if (prevToken.type == 'prompt') {
-      return new Promise<boolean>((resolve) => resolve(true));
+      console.log('case untested');
+      return;
     } else if (nextToken.type == 'prompt') {
-      return new Promise<boolean>((resolve) => resolve(true));
+      console.log('case untested');
+      return;
     } else if (doc.model.getText(start - 2, start, true) == '\\"') {
       // delete quoted double quote
-      return doc.model.edit([new ModelEdit('deleteRange', [start - 2, 2])], {
-        selections: [new ModelEditSelection(start - 2)],
+      doc.model.editNow([new ModelEdit('deleteRange', [start - 2, 2])], {
+        builder: builder,
       });
     } else if (prevToken.type === 'open' && nextToken.type === 'close') {
       // delete empty list
-      return doc.model.edit(
+      doc.model.editNow(
         [new ModelEdit('deleteRange', [start - prevToken.raw.length, prevToken.raw.length + 1])],
         {
-          selections: [new ModelEditSelection(start - prevToken.raw.length)],
+          builder: builder,
         }
       );
     } else if (
@@ -1142,13 +1217,25 @@ export async function backspace(
       onlyWhitespaceLeftOfCursor(doc.selections[0].anchor, cursor)
     ) {
       // we are at the beginning of a line, and not inside a string
-      return backspaceOnWhitespaceEdit(doc, cursor, config);
+      backspaceOnWhitespaceEdit(builder, doc, cursor, config);
+      return;
     } else {
       if (['open', 'close'].includes(prevToken.type) && cursor.docIsBalanced()) {
         doc.selections = [new ModelEditSelection(start - prevToken.raw.length)];
-        return new Promise<boolean>((resolve) => resolve(true));
+        return; // new Promise<boolean>((resolve) => resolve(true));
       } else {
-        return doc.backspace();
+        doc.model.editNow(
+          [
+            new ModelEdit('deleteRange', [
+              start - 1 /*prevToken.raw.length*/,
+              1 /*prevToken.raw.length*/,
+            ]),
+          ],
+          {
+            builder: builder,
+          }
+        );
+        return;
       }
     }
   }
