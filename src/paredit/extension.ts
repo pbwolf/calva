@@ -520,7 +520,12 @@ function wrapPareditCommandNow<C extends PareditCommandNow>(command: C) {
       if (!enabled || !languages.has(textEditor.document.languageId)) {
         return;
       }
-      return command.handlerNow(mDoc, builder);
+      const model = mDoc.model as docMirror.DocumentModel;
+      if (model.isCurrent(textEditor.document.version)) {
+        command.handlerNow(mDoc, builder);
+      } else {
+        console.warn('paredit is skipping ' + command.command + ' because of overrun');
+      }
     } catch (e) {
       console.error(e.message);
     }

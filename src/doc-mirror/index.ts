@@ -19,6 +19,8 @@ const documents = new Map<vscode.TextDocument, MirroredDocument>();
 export class DocumentModel implements EditableModel {
   readonly lineEndingLength: number;
   lineInputModel: LineInputModel;
+  documentVersion: number;
+  staleDocumentVersion: number;
 
   constructor(private document: MirroredDocument) {
     this.lineEndingLength = document.document.eol == vscode.EndOfLine.CRLF ? 2 : 1;
@@ -27,6 +29,17 @@ export class DocumentModel implements EditableModel {
 
   get lineEnding() {
     return this.lineEndingLength == 2 ? '\r\n' : '\n';
+  }
+
+  /** The model is up-to-date with the given document version
+   * and has not been edited beyond that document version */
+  isCurrent(editorVersion: number): boolean {
+    if (this.documentVersion && this.documentVersion == this.staleDocumentVersion) {
+      return false;
+    } else if (this.documentVersion && this.documentVersion != editorVersion) {
+      return false;
+    }
+    return true;
   }
 
   private editNowTextOnly(
@@ -49,6 +62,7 @@ export class DocumentModel implements EditableModel {
           break;
       }
     }
+    this.staleDocumentVersion = this.documentVersion;
   }
 
   editNow(modelEdits: ModelEdit<ModelEditFunction>[], options: ModelEditOptions): void {
@@ -236,6 +250,9 @@ function processChanges(event: vscode.TextDocumentChangeEvent) {
   model.lineInputModel.dirtyLines = [];
   model.lineInputModel.insertedLines.clear();
   model.lineInputModel.deletedLines.clear();
+
+  model.documentVersion = event.document.version;
+  model.staleDocumentVersion = undefined;
 }
 
 export function tryToGetDocument(doc: vscode.TextDocument) {
