@@ -58,8 +58,6 @@ type PareditCommandNow = {
 // only grab the custom, additional args after the first doc arg from the given command's handler
 type CommandArgOf<C extends PareditCommand> = Parameters<C['handler']>[1];
 
-type CommandNowArgOf<C extends PareditCommandNow> = Parameters<C['handlerNow']>[1];
-
 const pareditCommands = [
   // NAVIGATING
   {
@@ -510,11 +508,7 @@ function wrapPareditCommand<C extends PareditCommand>(command: C) {
 }
 
 function wrapPareditCommandNow<C extends PareditCommandNow>(command: C) {
-  return (
-    textEditor: vscode.TextEditor,
-    builder: vscode.TextEditorEdit,
-    arg: CommandNowArgOf<C>
-  ) => {
+  return (textEditor: vscode.TextEditor, builder: vscode.TextEditorEdit) => {
     try {
       const mDoc: EditableDocument = docMirror.getDocument(textEditor.document);
       if (!enabled || !languages.has(textEditor.document.languageId)) {

@@ -218,10 +218,6 @@ export class MirroredDocument implements EditableDocument {
   public delete(): Thenable<boolean> {
     return vscode.commands.executeCommand('deleteRight');
   }
-
-  public backspace(): Thenable<boolean> {
-    return vscode.commands.executeCommand('deleteLeft');
-  }
 }
 
 let registered = false;

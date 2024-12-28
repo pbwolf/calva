@@ -286,7 +286,6 @@ export interface EditableDocument {
   insertString: (text: string) => void;
   getSelectionText: () => string;
   delete: () => Thenable<boolean>;
-  backspace: () => Thenable<boolean>;
 }
 
 /** The underlying model for the REPL readline. */
@@ -774,13 +773,6 @@ export class StringDocument implements EditableDocument {
     const p = this.selections[0].anchor;
     return this.model.edit([new ModelEdit('deleteRange', [p, 1])], {
       selections: [new ModelEditSelection(p)],
-    });
-  }
-
-  backspace() {
-    const p = this.selections[0].anchor;
-    return this.model.edit([new ModelEdit('deleteRange', [p - 1, 1])], {
-      selections: [new ModelEditSelection(p - 1)],
     });
   }
 }
