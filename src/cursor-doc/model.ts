@@ -2,7 +2,7 @@ import { Scanner, Token, ScannerState } from './clojure-lexer';
 import { LispTokenCursor } from './token-cursor';
 import { deepEqual as equal } from '../util/object';
 import { isNumber, isUndefined } from 'lodash';
-import { TextDocument, Selection } from 'vscode';
+import { TextDocument, Selection, TextEditorEdit } from 'vscode';
 import _ = require('lodash');
 
 let scanner: Scanner;
@@ -244,6 +244,7 @@ export type ModelEditOptions = {
   formatDepth?: number;
   skipFormat?: boolean;
   selections?: ModelEditSelection[];
+  builder?: TextEditorEdit;
 };
 
 export interface EditableModel {
@@ -256,6 +257,15 @@ export interface EditableModel {
    * @param edits
    */
   edit: (edits: ModelEdit<ModelEditFunction>[], options: ModelEditOptions) => Thenable<boolean>;
+
+  /**
+   * Performs a model edit batch "synchronously",
+   * using the TextEditorEdit at the 'builder' key of options if applicable.
+   * For some EditableModel's these are performed as one atomic set of edits.
+   * @param edits What to do
+   * @param options The TextEditorEdit (at the 'builder' key, if applicable) and other options
+   */
+  editNow: (edits: ModelEdit<ModelEditFunction>[], options: ModelEditOptions) => void;
 
   getText: (start: number, end: number, mustBeWithin?: boolean) => string;
   getLineText: (line: number) => string;
@@ -527,32 +537,36 @@ export class LineInputModel implements EditableModel {
    */
   edit(edits: ModelEdit<ModelEditFunction>[], options: ModelEditOptions): Thenable<boolean> {
     return new Promise((resolve, reject) => {
-      for (const edit of edits) {
-        switch (edit.editFn) {
-          case 'insertString': {
-            const fn = this.insertString;
-            this.insertString(...(edit.args.slice(0, 4) as Parameters<typeof fn>));
-            break;
-          }
-          case 'changeRange': {
-            const fn = this.changeRange;
-            this.changeRange(...(edit.args.slice(0, 5) as Parameters<typeof fn>));
-            break;
-          }
-          case 'deleteRange': {
-            const fn = this.deleteRange;
-            this.deleteRange(...(edit.args.slice(0, 5) as Parameters<typeof fn>));
-            break;
-          }
-          default:
-            break;
-        }
-      }
-      if (this.document && options.selections) {
-        this.document.selections = options.selections;
-      }
+      this.editNow(edits, options);
       resolve(true);
     });
+  }
+
+  editNow(edits: ModelEdit<ModelEditFunction>[], options: ModelEditOptions): void {
+    for (const edit of edits) {
+      switch (edit.editFn) {
+        case 'insertString': {
+          const fn = this.insertString;
+          this.insertString(...(edit.args.slice(0, 4) as Parameters<typeof fn>));
+          break;
+        }
+        case 'changeRange': {
+          const fn = this.changeRange;
+          this.changeRange(...(edit.args.slice(0, 5) as Parameters<typeof fn>));
+          break;
+        }
+        case 'deleteRange': {
+          const fn = this.deleteRange;
+          this.deleteRange(...(edit.args.slice(0, 5) as Parameters<typeof fn>));
+          break;
+        }
+        default:
+          break;
+      }
+    }
+    if (this.document && options.selections) {
+      this.document.selections = options.selections;
+    }
   }
 
   /**
