@@ -31,10 +31,11 @@ export async function killRange(
   end = doc.selections[0].active,
   editOptions: Omit<ModelEditOptions, 'selections'> = { skipFormat: false }
 ) {
+  console.log('killRange');
   const [left, right] = [Math.min(...range), Math.max(...range)];
   return doc.model.edit([new ModelEdit('deleteRange', [left, right - left, [start, end]])], {
     ...editOptions,
-    selections: [new ModelEditSelection(left)],
+    //selections: [new ModelEditSelection(left)],
   });
 }
 
@@ -658,6 +659,7 @@ export async function wrapSexpr(
   end: number = doc.selections[0].active,
   options = { skipFormat: false }
 ) {
+  console.log('wrapSexpr has A and B cases');
   const cursor = doc.getTokenCursor(end);
   if (cursor.withinString() && open == '"') {
     open = close = '\\"';
@@ -666,6 +668,7 @@ export async function wrapSexpr(
     // No selection
     const currentFormRange = cursor.rangeForCurrentForm(start);
     if (currentFormRange) {
+      console.log('wrapSexpr A');
       const range = currentFormRange;
       return doc.model.edit(
         [
@@ -673,17 +676,18 @@ export async function wrapSexpr(
           new ModelEdit('insertString', [
             range[0],
             open,
-            [end, end],
-            [start + open.length, start + open.length],
+            undefined, //@@@[end, end],
+            undefined, //@@@[start + open.length, start + open.length],
           ]),
         ],
         {
-          selections: [new ModelEditSelection(start + open.length)],
-          skipFormat: options.skipFormat,
+          //selections: [new ModelEditSelection(start + open.length)],
+          skipFormat: true, //@@@options.skipFormat,
         }
       );
     }
   } else {
+    console.log('wrapSexpr B');
     // there is a selection
     const range = [Math.min(start, end), Math.max(start, end)];
     return doc.model.edit(
@@ -692,8 +696,8 @@ export async function wrapSexpr(
         new ModelEdit('insertString', [range[0], open]),
       ],
       {
-        selections: [new ModelEditSelection(start + open.length)],
-        skipFormat: options.skipFormat,
+        selections: [new ModelEditSelection(start + open.length)], //@@@important!
+        skipFormat: true, //@@@options.skipFormat,
       }
     );
   }
@@ -723,6 +727,7 @@ export function rewrapSexpr(
   close: string,
   selections = [doc.selections[0]]
 ) {
+  console.log('rewrapSexpr is async');
   const edits: { type: 'open' | 'close'; change: number; edit: ModelEdit<'changeRange'> }[] = [],
     newSelections = _.clone(selections).map((s) => ({ selection: s, change: 0 }));
 
@@ -794,12 +799,13 @@ export function rewrapSexpr(
   });
 
   return doc.model.edit(editsToApply, {
-    selections: selectionsToApply,
+    //selections: selectionsToApply,
   });
 }
 
 export async function splitSexp(doc: EditableDocument, start: number = doc.selections[0].active) {
   const cursor = doc.getTokenCursor(start);
+  console.log('splitSexp is async');
   if (!cursor.withinString() && !(cursor.isWhiteSpace() || cursor.previousIsWhiteSpace())) {
     cursor.forwardWhitespace();
   }
@@ -809,9 +815,16 @@ export async function splitSexp(doc: EditableDocument, start: number = doc.selec
     if (cursor.forwardList()) {
       const close = cursor.getToken().raw;
       return doc.model.edit(
-        [new ModelEdit('changeRange', [splitPos, splitPos, `${close}${open}`])],
+        [
+          new ModelEdit('changeRange', [splitPos, splitPos, `${close}${open}`]),
+
+          //new ModelEdit('changeRange', [splitPos, splitPos, `${open}`]),
+          //new ModelEdit('insertString', [splitPos - 1, `${close}`]), //@@@
+          // (1 2 |3 4 5)
+          // (1 2) (|3 4 5)
+        ],
         {
-          selections: [new ModelEditSelection(splitPos + 1)],
+          //selections: [new ModelEditSelection(splitPos + 1)],
         }
       );
     }
@@ -938,7 +951,7 @@ export async function forwardSlurpSexp(
       const editOptions = {
         ...{
           undoStopBefore: true,
-          skipFormat: true, // @@@
+          //skipFormat: true, // @@@
         },
         ...extraOpts,
       };
@@ -988,7 +1001,7 @@ export async function backwardSlurpSexp(
       const editOptions = {
         ...{
           undoStopBefore: true,
-          skipFormat: true, // @@@
+          //skipFormat: true, // @@@
         },
         ...extraOpts,
       };
@@ -1045,11 +1058,11 @@ export async function forwardBarfSexp(
       start >= cursor.offsetStart
         ? {
             //selections: [new ModelEditSelection(cursor.offsetStart)],
-            skipFormat: true, // @@@
+            //skipFormat: true, // @@@
             //formatDepth: 2,
           }
         : {
-            skipFormat: true, // @@@
+            //skipFormat: true, // @@@
             //formatDepth: 2
           };
     //console.log('forwardBarfSexp');
@@ -1070,11 +1083,11 @@ export async function forwardBarfSexp(
       /*start >= cursor.offsetStart
         ? {
             //selections: [new ModelEditSelection(cursor.offsetStart)],
-            skipFormat: true,
+            //skipFormat: true,
             //formatDepth: 2,
           }
         : {
-            skipFormat: true,
+            //skipFormat: true,
             //formatDepth: 2
           }*/
     );
@@ -1104,23 +1117,24 @@ export async function backwardBarfSexp(
       start <= cursor.offsetStart
         ? {
             //selections: [new ModelEditSelection(cursor.offsetStart)],
-            skipFormat: true, //@@@
+            //skipFormat: true, //@@@
             //formatDepth: 2,
           }
         : {
-            skipFormat: true, //????@@@
+            //skipFormat: true, //????@@@
             formatDepth: 2,
           }
     );
   }
 }
 
-export function open(
+/*export function open(
   doc: EditableDocument,
   open: string,
   close: string,
   start: number = doc.selections[0].active
 ) {
+  console.log('paredit.open');
   const [cs, ce] = [doc.selections[0].anchor, doc.selections[0].active];
   doc.insertString(open + doc.getSelectionText() + close);
   if (cs != ce) {
@@ -1128,13 +1142,14 @@ export function open(
   } else {
     doc.selections = [new ModelEditSelection(start + open.length)];
   }
-}
+}*/
 
 export async function close(
   doc: EditableDocument,
   close: string,
   start: number = doc.selections[0].active
 ) {
+  console.log('paredit.close');
   const cursor = doc.getTokenCursor(start);
   const inString = cursor.withinString();
   cursor.forwardWhitespace(false);
@@ -1246,6 +1261,7 @@ export async function deleteForward(
   start: number = doc.selections[0].anchor,
   end: number = doc.selections[0].active
 ) {
+  console.log('deleteForward - async');
   if (start != end) {
     await doc.delete();
   } else {
@@ -1280,6 +1296,7 @@ export async function stringQuote(
   start: number = doc.selections[0].anchor,
   end: number = doc.selections[0].active
 ) {
+  console.log('stringQuote - async');
   if (start != end) {
     doc.insertString('"');
   } else {
@@ -1449,6 +1466,7 @@ export async function raiseSexp(
   start = doc.selections[0].anchor,
   end = doc.selections[0].active
 ) {
+  console.log('raiseSexp - async');
   const cursor = doc.getTokenCursor(end);
   const [formStart, formEnd] = cursor.rangeForCurrentForm(start);
   const isCaretTrailing = formEnd - start < start - formStart;
@@ -1481,6 +1499,7 @@ export async function convolute(
   start = doc.selections[0].anchor,
   end = doc.selections[0].active
 ) {
+  console.log('convolute - async');
   if (start == end) {
     const cursorStart = doc.getTokenCursor(end);
     const cursorEnd = cursorStart.clone();

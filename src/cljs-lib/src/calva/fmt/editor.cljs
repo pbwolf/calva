@@ -31,23 +31,24 @@
        (remove (fn [[o n i]]
                  (= o n))))
   (filter some?
-          (map (fn [o n line] (when-not (= o n) [o n line]))
+          (map (fn [o n line] () (when-not (= o n) [o n line]))
                [:foo :foo :foo]
                [:foo :bar :foo]
                (range))))
-
+( 1 2 )(3 4 5 )
 (comment
-  
-  (println (str)#(foo))
+  [4227]
+  (pri [nt] ln (str) #(foo))
 
-  (println (str) "foo")
-
-  
+  (1 2 ) (3 4 5)
   "(str) foo"
-
+  "println"
+  "new_(york)"
+  "new_jersey"
+  "connecticut"
   (str) "foo"
 
-slurps form before string
+  slurps form before string
   (str) "fo|o"
   "(str) fo|o"
 

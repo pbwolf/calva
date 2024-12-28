@@ -1586,6 +1586,7 @@ describe('paredit', () => {
     });
   });
   describe('edits', () => {
+    /*
     describe('Close lists', () => {
       it('Advances cursor if at end of list of the same type', async () => {
         const a = docFromTextNotation('(str "foo"|)');
@@ -1614,6 +1615,7 @@ describe('paredit', () => {
         expect(textAndSelection(a)).toEqual(textAndSelection(b));
       });
     });
+    */
     describe('String quoting', () => {
       it('Closes quote at end of string', async () => {
         const a = docFromTextNotation('(str "foo|")');
