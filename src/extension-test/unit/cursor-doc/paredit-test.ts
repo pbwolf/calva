@@ -1834,6 +1834,12 @@ describe('paredit', () => {
 
     describe('Kill character backwards (backspace)', () => {
       // TODO: Change to await instead of void
+      it('Deletes a selected range', async () => {
+        const a = docFromTextNotation('{::foo ()• :|:bar |:foo}');
+        const b = docFromTextNotation('{::foo ()• :|:foo}');
+        await paredit.backspace(a);
+        expect(textAndSelection(a)).toEqual(textAndSelection(b));
+      });
       it('Leaves closing paren of empty list alone', async () => {
         const a = docFromTextNotation('{::foo ()|• ::bar :foo}');
         const b = docFromTextNotation('{::foo (|)• ::bar :foo}');
