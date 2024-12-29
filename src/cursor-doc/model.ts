@@ -764,9 +764,14 @@ export class StringDocument implements EditableDocument {
   }
 
   backspace() {
-    const p = this.selections[0].anchor;
-    return this.model.edit([new ModelEdit('deleteRange', [p - 1, 1])], {
-      selections: [new ModelEditSelection(p - 1)],
+    const anchor = this.selections[0].anchor;
+    const active = this.selections[0].active;
+    const [left, right] =
+      anchor == active
+        ? [Math.max(0, anchor - 1), anchor]
+        : [Math.min(anchor, active), Math.max(anchor, active)];
+    return this.model.edit([new ModelEdit('deleteRange', [left, right - left])], {
+      selections: [new ModelEditSelection(left)],
     });
   }
 }
