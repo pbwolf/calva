@@ -227,7 +227,7 @@ function processChanges(event: vscode.TextDocumentChangeEvent) {
   const model = documents.get(event.document).model;
 
   // The event should describe a document newer than we'd seen before.
-  // Out-of-order events would require us to restart with clean slate.
+  // Out-of-order events might cause a mix-up in the model.
   if (event.contentChanges.length > 0 && event.document.version <= model.documentVersion) {
     console.error(
       'MirroredDocument TextDocumentChangeEvent not monotonically increasing! ' +
