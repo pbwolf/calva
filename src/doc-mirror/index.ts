@@ -31,15 +31,16 @@ export class DocumentModel implements EditableModel {
     return this.lineEndingLength == 2 ? '\r\n' : '\n';
   }
 
-  /** The model is up-to-date with the given document version
-   * and has not been edited beyond that document version */
-  isCurrent(editorVersion: number): boolean {
-    if (this.documentVersion && this.documentVersion == this.staleDocumentVersion) {
-      return false;
-    } else if (this.documentVersion && this.documentVersion != editorVersion) {
-      return false;
+  /** A message if the model is out-of-date with the given document version
+   * or has been edited beyond that document version */
+  stale(editorVersion: number): string {
+    if (this.documentVersion && this.documentVersion != editorVersion) {
+      return 'model=' + this.documentVersion + ' vs document=' + editorVersion;
+    } else if (this.documentVersion && this.documentVersion == this.staleDocumentVersion) {
+      return 'edited since ' + this.documentVersion;
+    } else {
+      return null;
     }
-    return true;
   }
 
   private editNowTextOnly(
@@ -70,12 +71,12 @@ export class DocumentModel implements EditableModel {
     if (options.selections) {
       this.document.selections = options.selections;
     }
-    // TODO formatting in editNow
-    //if (!options.skipFormat) {
-    //  return formatter.formatPosition(editor, true, {
-    //    'format-depth': options.formatDepth ?? 1,
-    //  });
-    //}
+    if (!options.skipFormat) {
+      const editor = utilities.getActiveTextEditor();
+      void formatter.scheduleFormatAsType(editor, {
+        'format-depth': options.formatDepth ?? 1,
+      });
+    }
   }
 
   edit(modelEdits: ModelEdit<ModelEditFunction>[], options: ModelEditOptions): Thenable<boolean> {
@@ -224,6 +225,19 @@ let registered = false;
 
 function processChanges(event: vscode.TextDocumentChangeEvent) {
   const model = documents.get(event.document).model;
+
+  // The event should describe a document newer than we'd seen before.
+  // Out-of-order events would require us to restart with clean slate.
+  if (event.contentChanges.length > 0 && event.document.version <= model.documentVersion) {
+    console.error(
+      'MirroredDocument TextDocumentChangeEvent not monotonically increasing! ' +
+        'model had ' +
+        model.documentVersion +
+        ', event=' +
+        event.document.version
+    );
+  }
+
   for (const change of event.contentChanges) {
     // vscode may have a \r\n marker, so it's line offsets are all wrong.
     const myStartOffset =

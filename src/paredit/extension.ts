@@ -515,10 +515,13 @@ function wrapPareditCommandNow<C extends PareditCommandNow>(command: C) {
         return;
       }
       const model = mDoc.model as docMirror.DocumentModel;
-      if (model.isCurrent(textEditor.document.version)) {
+      const staleMessage = model.stale(textEditor.document.version);
+      if (!staleMessage) {
         command.handlerNow(mDoc, builder);
       } else {
-        console.warn('paredit is skipping ' + command.command + ' because of overrun');
+        console.warn(
+          'paredit is skipping ' + command.command + ' because of overrun: ' + staleMessage
+        );
       }
     } catch (e) {
       console.error(e.message);
