@@ -1113,6 +1113,7 @@ export function backspace(
     const [left, right] = [Math.min(start, end), Math.max(start, end)];
     return doc.model.editNow([new ModelEdit('deleteRange', [left, right - left])], {
       builder: builder,
+      skipFormat: true,
     });
   } else {
     const cursor = doc.getTokenCursor(start);
@@ -1130,6 +1131,7 @@ export function backspace(
       // delete quoted double quote
       return doc.model.editNow([new ModelEdit('deleteRange', [start - 2, 2])], {
         builder: builder,
+        skipFormat: true,
       });
     } else if (prevToken.type === 'open' && nextToken.type === 'close') {
       // delete empty list
@@ -1154,6 +1156,7 @@ export function backspace(
         const [left, right] = [Math.max(start - 1, 0), start];
         return doc.model.editNow([new ModelEdit('deleteRange', [left, right - left])], {
           builder: builder,
+          skipFormat: true,
         });
       }
     }
