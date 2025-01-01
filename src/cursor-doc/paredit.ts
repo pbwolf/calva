@@ -1105,10 +1105,10 @@ function backspaceOnWhitespaceEdit(
 export function backspace(
   doc: EditableDocument,
   builder?: TextEditorEdit,
-  config?: FormatterConfig,
-  start: number = doc.selections[0].anchor,
-  end: number = doc.selections[0].active
+  config?: FormatterConfig
 ): void {
+  const start = doc.selections[0].anchor;
+  const end = doc.selections[0].active;
   if (start != end) {
     const [left, right] = [Math.min(start, end), Math.max(start, end)];
     return doc.model.editNow([new ModelEdit('deleteRange', [left, right - left])], {

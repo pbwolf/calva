@@ -293,6 +293,11 @@ export function scheduleFormatAsType(editor: vscode.TextEditor, extraConfig: Clj
       editor: editor,
       documentVersion: expectedDocumentVersionUponCallback,
     };
+    // Delay before attempting to reformat.
+    // And then, reformat only if the document hasn't changed in the meantime.
+    // The intent is to keep format-as-you-type from getting tangled up
+    // amidst rapid-fire edits.
+    // Delay long enough for async events about past edits to have been processed.
     setTimeout(function () {
       formatPositionCallback(extraConfig);
     }, 250);

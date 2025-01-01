@@ -14,6 +14,8 @@ const defaultCljfmtContent =
 const LSP_CONFIG_KEY = 'CLOJURE-LSP';
 let lspFormatConfig: string | undefined;
 let lspFormatDate: number = 0;
+
+// how stale the cached config can be, before it deserves freshening
 const lspFormatTTLms: number = 6000;
 
 function configuration(): {
