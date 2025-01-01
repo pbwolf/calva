@@ -293,6 +293,7 @@ export function scheduleFormatAsType(editor: vscode.TextEditor, extraConfig: Clj
       editor: editor,
       documentVersion: expectedDocumentVersionUponCallback,
     };
+    // Delay, then check doc version is unchanged: reformat while quiescent to avoid race conditions
     setTimeout(function () {
       formatPositionCallback(extraConfig);
     }, 250);

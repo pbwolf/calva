@@ -52,7 +52,7 @@ type PareditCommand = {
 
 type PareditCommandNow = {
   command: string;
-  handlerNow: (doc: EditableDocument, arg?: any, builder?: vscode.TextEditorEdit) => void;
+  handlerNow: (doc: EditableDocument, builder?: vscode.TextEditorEdit) => void;
 };
 
 // only grab the custom, additional args after the first doc arg from the given command's handler
@@ -520,7 +520,7 @@ function wrapPareditCommandNow<C extends PareditCommandNow>(command: C) {
         command.handlerNow(mDoc, builder);
       } else {
         console.warn(
-          'paredit is skipping ' + command.command + ' because of overrun: ' + staleMessage
+          'paredit is skipping ' + command.command + ' because TextDocumentChangeEvent is overdue'
         );
       }
     } catch (e) {

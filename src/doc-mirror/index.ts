@@ -19,8 +19,8 @@ const documents = new Map<vscode.TextDocument, MirroredDocument>();
 export class DocumentModel implements EditableModel {
   readonly lineEndingLength: number;
   lineInputModel: LineInputModel;
-  documentVersion: number;
-  staleDocumentVersion: number;
+  documentVersion: number; // model reflects this version
+  staleDocumentVersion: number; // this version is outdated by queued edits
 
   constructor(private document: MirroredDocument) {
     this.lineEndingLength = document.document.eol == vscode.EndOfLine.CRLF ? 2 : 1;
@@ -31,7 +31,7 @@ export class DocumentModel implements EditableModel {
     return this.lineEndingLength == 2 ? '\r\n' : '\n';
   }
 
-  /** A message if the model is out-of-date with the given document version
+  /** A loggable message if the model is out-of-date with the given document version
    * or has been edited beyond that document version */
   stale(editorVersion: number): string {
     if (this.documentVersion && this.documentVersion != editorVersion) {
@@ -225,19 +225,6 @@ let registered = false;
 
 function processChanges(event: vscode.TextDocumentChangeEvent) {
   const model = documents.get(event.document).model;
-
-  // The event should describe a document newer than we'd seen before.
-  // Out-of-order events might cause a mix-up in the model.
-  if (event.contentChanges.length > 0 && event.document.version <= model.documentVersion) {
-    console.error(
-      'MirroredDocument TextDocumentChangeEvent not monotonically increasing! ' +
-        'model had ' +
-        model.documentVersion +
-        ', event=' +
-        event.document.version
-    );
-  }
-
   for (const change of event.contentChanges) {
     // vscode may have a \r\n marker, so it's line offsets are all wrong.
     const myStartOffset =
