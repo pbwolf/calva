@@ -50,10 +50,9 @@ type PareditCommand = {
   handler: (doc: EditableDocument, arg?: any) => void | Promise<any> | Thenable<any>;
 };
 
-// descriptor for a non-async command handler
 type PareditCommandNow = {
   command: string;
-  handlerNow: (doc: EditableDocument, builder?: vscode.TextEditorEdit) => void;
+  handlerNow: (doc: EditableDocument, arg?: any, builder?: vscode.TextEditorEdit) => void;
 };
 
 // only grab the custom, additional args after the first doc arg from the given command's handler
@@ -508,7 +507,6 @@ function wrapPareditCommand<C extends PareditCommand>(command: C) {
   };
 }
 
-// wrapper for a non-async command handler
 function wrapPareditCommandNow<C extends PareditCommandNow>(command: C) {
   return (textEditor: vscode.TextEditor, builder: vscode.TextEditorEdit) => {
     try {
@@ -517,13 +515,12 @@ function wrapPareditCommandNow<C extends PareditCommandNow>(command: C) {
         return;
       }
       const model = mDoc.model as docMirror.DocumentModel;
-      // Avoid garble: shed work if model is out-of-date with respect to the document.
       const staleMessage = model.stale(textEditor.document.version);
       if (!staleMessage) {
         command.handlerNow(mDoc, builder);
       } else {
         console.warn(
-          'paredit is skipping ' + command.command + ' because TextDocumentChangeEvent is overdue'
+          'paredit is skipping ' + command.command + ' because of overrun: ' + staleMessage
         );
       }
     } catch (e) {
