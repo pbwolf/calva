@@ -1175,6 +1175,7 @@ export function deleteForward(
       builder: builder,
     });
   } else {
+    // Note: skipFormat, lest formatter unexpectedly move the point (eg skipping past commas)
     const cursor = doc.getTokenCursor(start);
     const prevToken = cursor.getPrevToken();
     const nextToken = cursor.getToken();
@@ -1182,12 +1183,14 @@ export function deleteForward(
     if (doc.model.getText(p, p + 2, true) == '\\"') {
       return doc.model.editNow([new ModelEdit('deleteRange', [p, 2])], {
         builder: builder,
+        skipFormat: true,
       });
     } else if (prevToken.type === 'open' && nextToken.type === 'close') {
       return doc.model.editNow(
         [new ModelEdit('deleteRange', [p - prevToken.raw.length, prevToken.raw.length + 1])],
         {
           builder: builder,
+          skipFormat: true,
         }
       );
     } else {
@@ -1197,6 +1200,7 @@ export function deleteForward(
       } else {
         return doc.model.editNow([new ModelEdit('deleteRange', [start, 1])], {
           builder: builder,
+          skipFormat: true,
         });
       }
     }
