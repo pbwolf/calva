@@ -215,10 +215,6 @@ export class MirroredDocument implements EditableDocument {
       selection = editor.selections[0];
     return this.document.getText(selection);
   }
-
-  public delete(): Thenable<boolean> {
-    return vscode.commands.executeCommand('deleteRight');
-  }
 }
 
 let registered = false;

@@ -1163,35 +1163,41 @@ export function backspace(
   }
 }
 
-export async function deleteForward(
+export function deleteForward(
   doc: EditableDocument,
+  builder?: TextEditorEdit,
   start: number = doc.selections[0].anchor,
   end: number = doc.selections[0].active
 ) {
   if (start != end) {
-    await doc.delete();
+    const [left, right] = [Math.min(start, end), Math.max(start, end)];
+    return doc.model.editNow([new ModelEdit('deleteRange', [start, end - start])], {
+      builder: builder,
+    });
   } else {
     const cursor = doc.getTokenCursor(start);
     const prevToken = cursor.getPrevToken();
     const nextToken = cursor.getToken();
     const p = start;
     if (doc.model.getText(p, p + 2, true) == '\\"') {
-      return doc.model.edit([new ModelEdit('deleteRange', [p, 2])], {
-        selections: [new ModelEditSelection(p)],
+      return doc.model.editNow([new ModelEdit('deleteRange', [p, 2])], {
+        builder: builder,
       });
     } else if (prevToken.type === 'open' && nextToken.type === 'close') {
-      return doc.model.edit(
+      return doc.model.editNow(
         [new ModelEdit('deleteRange', [p - prevToken.raw.length, prevToken.raw.length + 1])],
         {
-          selections: [new ModelEditSelection(p - prevToken.raw.length)],
+          builder: builder,
         }
       );
     } else {
       if (['open', 'close'].includes(nextToken.type) && cursor.docIsBalanced()) {
         doc.selections = [new ModelEditSelection(p + 1)];
-        return new Promise<boolean>((resolve) => resolve(true));
+        return;
       } else {
-        return doc.delete();
+        return doc.model.editNow([new ModelEdit('deleteRange', [start, 1])], {
+          builder: builder,
+        });
       }
     }
   }

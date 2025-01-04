@@ -451,8 +451,8 @@ const pareditCommands = [
   },
   {
     command: 'paredit.deleteForward',
-    handler: async (doc: EditableDocument) => {
-      await paredit.deleteForward(doc);
+    handlerNow: (doc: EditableDocument, builder: vscode.TextEditorEdit) => {
+      paredit.deleteForward(doc, builder);
     },
   },
   {

@@ -2043,83 +2043,83 @@ describe('paredit', () => {
     });
 
     describe('Kill character forwards (delete)', () => {
-      it('Leaves closing paren of empty list alone', async () => {
+      it('Leaves closing paren of empty list alone', () => {
         const a = docFromTextNotation('{::foo |()• ::bar :foo}');
         const b = docFromTextNotation('{::foo (|)• ::bar :foo}');
-        await paredit.deleteForward(a);
+        paredit.deleteForward(a);
         expect(textAndSelection(a)).toEqual(textAndSelection(b));
       });
-      it('Deletes closing paren if unbalance', async () => {
+      it('Deletes closing paren if unbalance', () => {
         const a = docFromTextNotation('{::foo |)• ::bar :foo}');
         const b = docFromTextNotation('{::foo |• ::bar :foo}');
-        await paredit.deleteForward(a);
+        paredit.deleteForward(a);
         expect(textAndSelection(a)).toEqual(textAndSelection(b));
       });
-      it('Leaves opening paren of non-empty list alone', async () => {
+      it('Leaves opening paren of non-empty list alone', () => {
         const a = docFromTextNotation('{::foo |(a)• ::bar :foo}');
         const b = docFromTextNotation('{::foo (|a)• ::bar :foo}');
-        await paredit.deleteForward(a);
+        paredit.deleteForward(a);
         expect(textAndSelection(a)).toEqual(textAndSelection(b));
       });
-      it('Leaves opening quote of non-empty string alone', async () => {
+      it('Leaves opening quote of non-empty string alone', () => {
         const a = docFromTextNotation('{::foo |"a"• ::bar :foo}');
         const b = docFromTextNotation('{::foo "|a"• ::bar :foo}');
-        await paredit.deleteForward(a);
+        paredit.deleteForward(a);
         expect(textAndSelection(a)).toEqual(textAndSelection(b));
       });
-      it('Leaves closing quote of non-empty string alone', async () => {
+      it('Leaves closing quote of non-empty string alone', () => {
         const a = docFromTextNotation('{::foo "a|"• ::bar :foo}');
         const b = docFromTextNotation('{::foo "a"|• ::bar :foo}');
-        await paredit.deleteForward(a);
+        paredit.deleteForward(a);
         expect(textAndSelection(a)).toEqual(textAndSelection(b));
       });
-      it('Deletes contents in strings', async () => {
+      it('Deletes contents in strings', () => {
         const a = docFromTextNotation('{::foo "|a"• ::bar :foo}');
         const b = docFromTextNotation('{::foo "|"• ::bar :foo}');
-        await paredit.deleteForward(a);
+        paredit.deleteForward(a);
         expect(textAndSelection(a)).toEqual(textAndSelection(b));
       });
-      it('Deletes contents in strings 2', async () => {
+      it('Deletes contents in strings 2', () => {
         const a = docFromTextNotation('{::foo "|aa"• ::bar :foo}');
         const b = docFromTextNotation('{::foo "|a"• ::bar :foo}');
-        await paredit.deleteForward(a);
+        paredit.deleteForward(a);
         expect(textAndSelection(a)).toEqual(textAndSelection(b));
       });
-      it('Deletes quoted quote', async () => {
+      it('Deletes quoted quote', () => {
         const a = docFromTextNotation('{::foo |\\"• ::bar :foo}');
         const b = docFromTextNotation('{::foo |• ::bar :foo}');
-        await paredit.deleteForward(a);
+        paredit.deleteForward(a);
         expect(textAndSelection(a)).toEqual(textAndSelection(b));
       });
-      it('Deletes quoted quote in string', async () => {
+      it('Deletes quoted quote in string', () => {
         const a = docFromTextNotation('{::foo "|\\""• ::bar :foo}');
         const b = docFromTextNotation('{::foo "|"• ::bar :foo}');
-        await paredit.deleteForward(a);
+        paredit.deleteForward(a);
         expect(textAndSelection(a)).toEqual(textAndSelection(b));
       });
-      it('Deletes contents in list', async () => {
+      it('Deletes contents in list', () => {
         const a = docFromTextNotation('{::foo (|a)• ::bar :foo}');
         const b = docFromTextNotation('{::foo (|)• ::bar :foo}');
-        await paredit.deleteForward(a);
+        paredit.deleteForward(a);
         expect(textAndSelection(a)).toEqual(textAndSelection(b));
       });
-      it('Deletes empty list function', async () => {
+      it('Deletes empty list function', () => {
         const a = docFromTextNotation('{::foo (|)• ::bar :foo}');
         const b = docFromTextNotation('{::foo |• ::bar :foo}');
-        await paredit.deleteForward(a);
+        paredit.deleteForward(a);
         expect(textAndSelection(a)).toEqual(textAndSelection(b));
       });
-      it('Deletes empty set', async () => {
+      it('Deletes empty set', () => {
         const a = docFromTextNotation('#{|}');
         const b = docFromTextNotation('|');
-        await paredit.deleteForward(a);
+        paredit.deleteForward(a);
         expect(textAndSelection(a)).toEqual(textAndSelection(b));
       });
-      it('Deletes empty literal function with trailing newline', async () => {
+      it('Deletes empty literal function with trailing newline', () => {
         // https://github.com/BetterThanTomorrow/calva/issues/1079
         const a = docFromTextNotation('{::foo #(|)• ::bar :foo}');
         const b = docFromTextNotation('{::foo |• ::bar :foo}');
-        await paredit.deleteForward(a);
+        paredit.deleteForward(a);
         expect(textAndSelection(a)).toEqual(textAndSelection(b));
       });
     });
