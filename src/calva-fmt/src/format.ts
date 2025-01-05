@@ -49,10 +49,10 @@ export async function indentPosition(position: vscode.Position, document: vscode
   }
 }
 
-export async function formatRangeEdits(
+export function formatRangeEdits(
   document: vscode.TextDocument,
   originalRange: vscode.Range
-): Promise<vscode.TextEdit[] | undefined> {
+): vscode.TextEdit[] | undefined {
   const mirrorDoc = getDocument(document);
   const startIndex = document.offsetAt(originalRange.start);
   const cursor = mirrorDoc.getTokenCursor(startIndex);
@@ -63,7 +63,7 @@ export async function formatRangeEdits(
     const trailingWs = originalText.match(/\s*$/)[0];
     const missingTexts = cursorDocUtils.getMissingBrackets(originalText);
     const healedText = `${missingTexts.prepend}${originalText.trim()}${missingTexts.append}`;
-    const formattedHealedText = await formatCode(healedText, document.eol);
+    const formattedHealedText = formatCode(healedText, document.eol);
     const leadingEolPos = leadingWs.lastIndexOf(eol);
     const startIndent =
       leadingEolPos === -1
@@ -86,7 +86,7 @@ export async function formatRangeEdits(
 
 export async function formatRange(document: vscode.TextDocument, range: vscode.Range) {
   const wsEdit: vscode.WorkspaceEdit = new vscode.WorkspaceEdit();
-  const edits = await formatRangeEdits(document, range);
+  const edits = formatRangeEdits(document, range);
 
   if (isUndefined(edits)) {
     console.error('formatRangeEdits returned undefined!', cloneDeep({ document, range }));
@@ -315,11 +315,11 @@ export function trimWhiteSpacePositionCommand(editor: vscode.TextEditor) {
   void formatPosition(editor, false, { 'remove-multiple-non-indenting-spaces?': true });
 }
 
-export async function formatCode(code: string, eol: number) {
+export function formatCode(code: string, eol: number) {
   const d = {
     'range-text': code,
     eol: _convertEolNumToStringNotation(eol),
-    config: await config.getConfig(),
+    config: config.getConfigNow(),
   };
   const result = jsify(formatText(d));
   if (!result['error']) {
