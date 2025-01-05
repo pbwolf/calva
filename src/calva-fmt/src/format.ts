@@ -267,6 +267,7 @@ export async function formatPosition(
 
 // Debounce format-as-you-type and toss it aside if User seems still to be working
 let scheduledFormatCircumstances = undefined;
+const scheduledFormatDelayMs = 250;
 
 function formatPositionCallback(extraConfig: CljFmtConfig) {
   if (
@@ -283,20 +284,22 @@ function formatPositionCallback(extraConfig: CljFmtConfig) {
 }
 
 export function scheduleFormatAsType(editor: vscode.TextEditor, extraConfig: CljFmtConfig = {}) {
-  // overwrite previously scheduled unless applies to same document version
   const expectedDocumentVersionUponCallback = 1 + editor.document.version;
   if (
     !scheduledFormatCircumstances ||
     expectedDocumentVersionUponCallback != scheduledFormatCircumstances['documentVersion']
   ) {
+    // Unschedule (if scheduled) & reschedule: best effort to reformat at a quiet time
+    if (scheduledFormatCircumstances?.timeoutId) {
+      clearTimeout(scheduledFormatCircumstances?.timeoutId);
+    }
     scheduledFormatCircumstances = {
       editor: editor,
       documentVersion: expectedDocumentVersionUponCallback,
+      timeoutId: setTimeout(function () {
+        formatPositionCallback(extraConfig);
+      }, scheduledFormatDelayMs),
     };
-    // Delay, then check doc version is unchanged: reformat while quiescent to avoid race conditions
-    setTimeout(function () {
-      formatPositionCallback(extraConfig);
-    }, 250);
   }
 }
 
