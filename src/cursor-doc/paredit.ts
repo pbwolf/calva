@@ -1190,7 +1190,6 @@ export function deleteForward(
         [new ModelEdit('deleteRange', [p - prevToken.raw.length, prevToken.raw.length + 1])],
         {
           builder: builder,
-          skipFormat: true,
         }
       );
     } else {
