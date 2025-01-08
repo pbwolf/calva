@@ -4,6 +4,8 @@ Changes to Calva.
 
 ## [Unreleased]
 
+- Fix: [Paredit garbles while backspacing rapidly](https://github.com/BetterThanTomorrow/calva/issues/2611)
+- Fix: [Paredit garbles when deleteForward is repeated rapidly](https://github.com/BetterThanTomorrow/calva/issues/2691)
 - Fix: [Del key, after emptying a comment line, then imbalances the next form](https://github.com/BetterThanTomorrow/calva/issues/2686)
 
 ## [2.0.482] - 2024-12-03
