@@ -62,42 +62,66 @@ const pareditCommands = [
   // NAVIGATING
   {
     command: 'paredit.forwardSexp',
-    handler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
+    handlerNow: (
+      doc: EditableDocument,
+      _builder: vscode.TextEditorEdit,
+      opts?: { multicursor: boolean }
+    ) => {
       const isMulti = multiCursorEnabled(opts?.multicursor);
       handlers.forwardSexp(doc, isMulti);
     },
   },
   {
     command: 'paredit.backwardSexp',
-    handler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
+    handlerNow: (
+      doc: EditableDocument,
+      _builder: vscode.TextEditorEdit,
+      opts?: { multicursor: boolean }
+    ) => {
       const isMulti = multiCursorEnabled(opts?.multicursor);
       handlers.backwardSexp(doc, isMulti);
     },
   },
   {
     command: 'paredit.forwardDownSexp',
-    handler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
+    handlerNow: (
+      doc: EditableDocument,
+      _builder: vscode.TextEditorEdit,
+      opts?: { multicursor: boolean }
+    ) => {
       const isMulti = multiCursorEnabled(opts?.multicursor);
       handlers.forwardDownSexp(doc, isMulti);
     },
   },
   {
     command: 'paredit.backwardDownSexp',
-    handler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
+    handlerNow: (
+      doc: EditableDocument,
+      _builder: vscode.TextEditorEdit,
+      opts?: { multicursor: boolean }
+    ) => {
       const isMulti = multiCursorEnabled(opts?.multicursor);
       handlers.backwardDownSexp(doc, isMulti);
     },
   },
   {
     command: 'paredit.forwardUpSexp',
-    handler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
+    handlerNow: (
+      doc: EditableDocument,
+      _builder: vscode.TextEditorEdit,
+      opts?: { multicursor: boolean }
+    ) => {
       const isMulti = multiCursorEnabled(opts?.multicursor);
       handlers.forwardUpSexp(doc, isMulti);
     },
   },
   {
     command: 'paredit.backwardUpSexp',
-    handler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
+    handlerNow: (
+      doc: EditableDocument,
+      _builder: vscode.TextEditorEdit,
+      opts?: { multicursor: boolean }
+    ) => {
       const isMulti = multiCursorEnabled(opts?.multicursor);
       handlers.backwardUpSexp(doc, isMulti);
     },
@@ -118,14 +142,22 @@ const pareditCommands = [
   },
   {
     command: 'paredit.closeList',
-    handler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
+    handlerNow: (
+      doc: EditableDocument,
+      _builder: vscode.TextEditorEdit,
+      opts?: { multicursor: boolean }
+    ) => {
       const isMulti = multiCursorEnabled(opts?.multicursor);
       handlers.closeList(doc, isMulti);
     },
   },
   {
     command: 'paredit.openList',
-    handler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
+    handlerNow: (
+      doc: EditableDocument,
+      _builder: vscode.TextEditorEdit,
+      opts?: { multicursor: boolean }
+    ) => {
       const isMulti = multiCursorEnabled(opts?.multicursor);
       handlers.openList(doc, isMulti);
     },
@@ -148,14 +180,22 @@ const pareditCommands = [
   },
   {
     command: 'paredit.sexpRangeExpansion',
-    handler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
+    handlerNow: (
+      doc: EditableDocument,
+      _builder: vscode.TextEditorEdit,
+      opts?: { multicursor: boolean }
+    ) => {
       const isMulti = multiCursorEnabled(opts?.multicursor);
       handlers.sexpRangeExpansion(doc, isMulti);
     },
   },
   {
     command: 'paredit.sexpRangeContraction',
-    handler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
+    handlerNow: (
+      doc: EditableDocument,
+      _builder: vscode.TextEditorEdit,
+      opts?: { multicursor: boolean }
+    ) => {
       const isMulti = multiCursorEnabled(opts?.multicursor);
       handlers.sexpRangeContraction(doc, isMulti);
     },
@@ -163,7 +203,11 @@ const pareditCommands = [
 
   {
     command: 'paredit.selectForwardSexp',
-    handler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
+    handlerNow: (
+      doc: EditableDocument,
+      _builder: vscode.TextEditorEdit,
+      opts?: { multicursor: boolean }
+    ) => {
       const isMulti = multiCursorEnabled(opts?.multicursor);
       handlers.selectForwardSexp(doc, isMulti);
     },
@@ -177,7 +221,11 @@ const pareditCommands = [
   },
   {
     command: 'paredit.selectBackwardSexp',
-    handler: (doc: EditableDocument, opts?: { multicursor: boolean }) => {
+    handlerNow: (
+      doc: EditableDocument,
+      _builder: vscode.TextEditorEdit,
+      opts?: { multicursor: boolean }
+    ) => {
       const isMulti = multiCursorEnabled(opts?.multicursor);
       handlers.selectBackwardSexp(doc, isMulti);
     },
