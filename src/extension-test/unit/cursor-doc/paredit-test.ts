@@ -1678,94 +1678,94 @@ describe('paredit', () => {
 
     describe('Slurping', () => {
       describe('Slurping forwards', () => {
-        it('slurps form after list', async () => {
+        it('slurps form after list', () => {
           const a = docFromTextNotation('(str|) "foo"');
           const b = docFromTextNotation('(str| "foo")');
-          await paredit.forwardSlurpSexp(a);
+          paredit.forwardSlurpSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
-        it('slurps, in multiline document', async () => {
+        it('slurps, in multiline document', () => {
           const a = docFromTextNotation('(foo• (str| ) "foo")');
           const b = docFromTextNotation('(foo• (str| "foo"))');
-          await paredit.forwardSlurpSexp(a);
+          paredit.forwardSlurpSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
-        it('slurps and adds leading space', async () => {
+        it('slurps and adds leading space', () => {
           const a = docFromTextNotation('(s|tr)#(foo)');
           const b = docFromTextNotation('(s|tr #(foo))');
-          await paredit.forwardSlurpSexp(a);
+          paredit.forwardSlurpSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
-        it('slurps without adding a space', async () => {
+        it('slurps without adding a space', () => {
           const a = docFromTextNotation('(s|tr )#(foo)');
           const b = docFromTextNotation('(s|tr #(foo))');
-          await paredit.forwardSlurpSexp(a);
+          paredit.forwardSlurpSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
-        it('slurps, trimming inside whitespace', async () => {
+        it('slurps, trimming inside whitespace', () => {
           const a = docFromTextNotation('(str|   )"foo"');
           const b = docFromTextNotation('(str| "foo")');
-          await paredit.forwardSlurpSexp(a);
+          paredit.forwardSlurpSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
-        it('slurps, trimming outside whitespace', async () => {
+        it('slurps, trimming outside whitespace', () => {
           const a = docFromTextNotation('(str|)   "foo"');
           const b = docFromTextNotation('(str| "foo")');
-          await paredit.forwardSlurpSexp(a);
+          paredit.forwardSlurpSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
-        it('slurps, trimming inside and outside whitespace', async () => {
+        it('slurps, trimming inside and outside whitespace', () => {
           const a = docFromTextNotation('(str|   )   "foo"');
           const b = docFromTextNotation('(str| "foo")');
-          await paredit.forwardSlurpSexp(a);
+          paredit.forwardSlurpSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
-        it('slurps form after empty list', async () => {
+        it('slurps form after empty list', () => {
           const a = docFromTextNotation('(|) "foo"');
           const b = docFromTextNotation('(| "foo")');
-          await paredit.forwardSlurpSexp(a);
+          paredit.forwardSlurpSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
-        it('leaves newlines when slurp', async () => {
+        it('leaves newlines when slurp', () => {
           const a = docFromTextNotation('(fo|o•)  bar');
           const b = docFromTextNotation('(fo|o•  bar)');
-          await paredit.forwardSlurpSexp(a);
+          paredit.forwardSlurpSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
-        it('slurps properly when closing paren is on new line', async () => {
+        it('slurps properly when closing paren is on new line', () => {
           // https://github.com/BetterThanTomorrow/calva/issues/1171
           const a = docFromTextNotation('(def foo•  (str|•   )•  42)');
           const b = docFromTextNotation('(def foo•  (str|•   •  42))');
-          await paredit.forwardSlurpSexp(a);
+          paredit.forwardSlurpSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
-        it('slurps form including meta and readers', async () => {
+        it('slurps form including meta and readers', () => {
           const a = docFromTextNotation('(|) ^{:a b} #c ^d "foo"');
           const b = docFromTextNotation('(| ^{:a b} #c ^d "foo")');
-          await paredit.forwardSlurpSexp(a);
+          paredit.forwardSlurpSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
       });
 
       describe('Slurping backwards', () => {
-        it('slurps form before string', async () => {
+        it('slurps form before string', () => {
           const a = docFromTextNotation('(str) "fo|o"');
           const b = docFromTextNotation('"(str) fo|o"');
-          await paredit.backwardSlurpSexp(a);
+          paredit.backwardSlurpSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
-        it('slurps form before list', async () => {
+        it('slurps form before list', () => {
           const a = docFromTextNotation('(str) (fo|o)');
           const b = docFromTextNotation('((str) fo|o)');
-          await paredit.backwardSlurpSexp(a);
+          paredit.backwardSlurpSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
-        it('slurps form before list including meta and readers', async () => {
+        it('slurps form before list including meta and readers', () => {
           const a = docFromTextNotation('^{:a b} #c ^d "foo" (|)');
           // TODO: Figure out how to test result after format
           //       (Because that last space is then removed)
           const b = docFromTextNotation('(^{:a b} #c ^d "foo" |)');
-          await paredit.backwardSlurpSexp(a);
+          paredit.backwardSlurpSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
       });
@@ -1773,45 +1773,45 @@ describe('paredit', () => {
 
     describe('Barfing', () => {
       describe('Barfing forwards', () => {
-        it('barfs last form in list', async () => {
+        it('barfs last form in list', () => {
           const a = docFromTextNotation('(str| "foo")');
           const b = docFromTextNotation('(str|) "foo"');
-          await paredit.forwardBarfSexp(a);
+          paredit.forwardBarfSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
-        it('leaves newlines when slurp', async () => {
+        it('leaves newlines when slurp', () => {
           const a = docFromTextNotation('(fo|o•  bar)');
           const b = docFromTextNotation('(fo|o)•  bar');
-          await paredit.forwardBarfSexp(a);
+          paredit.forwardBarfSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
-        it('barfs form including meta and readers', async () => {
+        it('barfs form including meta and readers', () => {
           const a = docFromTextNotation('(| ^{:a b} #c ^d "foo")');
           const b = docFromTextNotation('(|) ^{:a b} #c ^d "foo"');
-          await paredit.forwardBarfSexp(a);
+          paredit.forwardBarfSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
-        it('barfs form from balanced list, when inside unclosed list', async () => {
+        it('barfs form from balanced list, when inside unclosed list', () => {
           // Trying to expose:
           // https://github.com/BetterThanTomorrow/calva/issues/1585
           const a = docFromTextNotation('(let [a| a)');
           const b = docFromTextNotation('(let [a|) a');
-          await paredit.forwardBarfSexp(a);
+          paredit.forwardBarfSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
       });
 
       describe('Barfing backwards', () => {
-        it('barfs first form in list', async () => {
+        it('barfs first form in list', () => {
           const a = docFromTextNotation('((str) fo|o)');
           const b = docFromTextNotation('(str) (fo|o)');
-          await paredit.backwardBarfSexp(a);
+          paredit.backwardBarfSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
-        it('barfs first form in list including meta and readers', async () => {
+        it('barfs first form in list including meta and readers', () => {
           const a = docFromTextNotation('(^{:a b} #c ^d "foo"|)');
           const b = docFromTextNotation('^{:a b} #c ^d "foo"(|)');
-          await paredit.backwardBarfSexp(a);
+          paredit.backwardBarfSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
       });

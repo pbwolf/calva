@@ -907,8 +907,9 @@ export async function killForwardList(doc: EditableDocument, [start, end]: [numb
   );
 }
 
-export async function forwardSlurpSexp(
+export function forwardSlurpSexp(
   doc: EditableDocument,
+  builder?: TextEditorEdit,
   start: number = doc.selections[0].active,
   extraOpts = { formatDepth: 1 }
 ) {
@@ -931,13 +932,14 @@ export async function forwardSlurpSexp(
         replacedText.indexOf('\n') >= 0
           ? ([currentCloseOffset, currentCloseOffset + close.length, ''] as const)
           : ([wsStartOffset, wsEndOffset, ' '] as const);
-      return doc.model.edit(
+      return doc.model.editNow(
         [
           new ModelEdit('insertString', [newCloseOffset, close]),
           new ModelEdit('changeRange', changeArgs),
         ],
         {
           ...{
+            builder: builder,
             undoStopBefore: true,
           },
           ...extraOpts,
@@ -945,15 +947,16 @@ export async function forwardSlurpSexp(
       );
     } else {
       const formatDepth = extraOpts['formatDepth'] ? extraOpts['formatDepth'] : 1;
-      return forwardSlurpSexp(doc, cursor.offsetStart, {
+      return forwardSlurpSexp(doc, builder, cursor.offsetStart, {
         formatDepth: formatDepth + 1,
       });
     }
   }
 }
 
-export async function backwardSlurpSexp(
+export function backwardSlurpSexp(
   doc: EditableDocument,
+  builder?: TextEditorEdit,
   start: number = doc.selections[0].active,
   extraOpts = {}
 ) {
@@ -967,13 +970,14 @@ export async function backwardSlurpSexp(
     cursor.backwardSexp(true, true);
     cursor.forwardWhitespace(false);
     if (offset !== cursor.offsetStart) {
-      return doc.model.edit(
+      return doc.model.editNow(
         [
           new ModelEdit('deleteRange', [offset, tk.raw.length]),
           new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart, open]),
         ],
         {
           ...{
+            builder: builder,
             undoStopBefore: true,
           },
           ...extraOpts,
@@ -981,15 +985,16 @@ export async function backwardSlurpSexp(
       );
     } else {
       const formatDepth = extraOpts['formatDepth'] ? extraOpts['formatDepth'] : 1;
-      return backwardSlurpSexp(doc, cursor.offsetStart, {
+      return backwardSlurpSexp(doc, builder, cursor.offsetStart, {
         formatDepth: formatDepth + 1,
       });
     }
   }
 }
 
-export async function forwardBarfSexp(
+export function forwardBarfSexp(
   doc: EditableDocument,
+  builder?: TextEditorEdit,
   start: number = doc.selections[0].active
 ) {
   const cursor = doc.getTokenCursor(start);
@@ -999,23 +1004,20 @@ export async function forwardBarfSexp(
       close = cursor.getToken().raw;
     cursor.backwardSexp(true, true);
     cursor.backwardWhitespace();
-    return doc.model.edit(
-      [
-        new ModelEdit('deleteRange', [offset, close.length]),
-        new ModelEdit('insertString', [cursor.offsetStart, close]),
-      ],
-      start >= cursor.offsetStart
-        ? {
-            selections: [new ModelEditSelection(cursor.offsetStart)],
-            formatDepth: 2,
-          }
-        : { formatDepth: 2 }
+    const t = doc.model.getText(cursor.offsetStart, offset);
+    return doc.model.editNow(
+      [new ModelEdit('changeRange', [cursor.offsetStart, offset + close.length, close + t])],
+      {
+        builder: builder,
+        formatDepth: 2,
+      }
     );
   }
 }
 
-export async function backwardBarfSexp(
+export function backwardBarfSexp(
   doc: EditableDocument,
+  builder?: TextEditorEdit,
   start: number = doc.selections[0].active
 ) {
   const cursor = doc.getTokenCursor(start);
@@ -1028,18 +1030,11 @@ export async function backwardBarfSexp(
     cursor.next();
     cursor.forwardSexp(true, true);
     cursor.forwardWhitespace(false);
-    return doc.model.edit(
-      [
-        new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart, close]),
-        new ModelEdit('deleteRange', [offset, tk.raw.length]),
-      ],
-      start <= cursor.offsetStart
-        ? {
-            selections: [new ModelEditSelection(cursor.offsetStart)],
-            formatDepth: 2,
-          }
-        : { formatDepth: 2 }
-    );
+    const t = doc.model.getText(offset + close.length, cursor.offsetStart) + close;
+    return doc.model.editNow([new ModelEdit('changeRange', [cursor.offsetStart, offset, t])], {
+      builder: builder,
+      formatDepth: 2,
+    });
   }
 }
 

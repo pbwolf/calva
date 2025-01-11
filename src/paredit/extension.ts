@@ -290,19 +290,19 @@ const pareditCommands = [
   // EDITING
   {
     command: 'paredit.slurpSexpForward',
-    handler: paredit.forwardSlurpSexp,
+    handlerNow: paredit.forwardSlurpSexp,
   },
   {
     command: 'paredit.barfSexpForward',
-    handler: paredit.forwardBarfSexp,
+    handlerNow: paredit.forwardBarfSexp,
   },
   {
     command: 'paredit.slurpSexpBackward',
-    handler: paredit.backwardSlurpSexp,
+    handlerNow: paredit.backwardSlurpSexp,
   },
   {
     command: 'paredit.barfSexpBackward',
-    handler: paredit.backwardBarfSexp,
+    handlerNow: paredit.backwardBarfSexp,
   },
   {
     command: 'paredit.splitSexp',
