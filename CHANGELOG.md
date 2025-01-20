@@ -4,6 +4,8 @@ Changes to Calva.
 
 ## [Unreleased]
 
+- Fix: [Have test runner show diff between "actual" and "expected"](https://github.com/BetterThanTomorrow/calva/issues/1007)
+
 ## [2.0.483] - 2025-01-08
 
 - Fix: [Paredit garbles while backspacing rapidly](https://github.com/BetterThanTomorrow/calva/issues/2611)
@@ -12,7 +14,7 @@ Changes to Calva.
 
 ## [2.0.482] - 2024-12-03
 
-- Fix: [Added 'replace-refer-all-with-alias' & 'replace-refer-all-with-refer' actions to calva.](https://github.com/BetterThanTomorrow/calva/issues/2667) 
+- Fix: [Added 'replace-refer-all-with-alias' & 'replace-refer-all-with-refer' actions to calva.](https://github.com/BetterThanTomorrow/calva/issues/2667)
 
 ## [2.0.481] - 2024-10-29
 
