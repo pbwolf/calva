@@ -21,7 +21,7 @@ export function setCursorContextIfChanged(editor: vscode.TextEditor) {
   }
   const contexts = determineCursorContexts(editor.document, editor.selections[0].active);
   setCursorContexts(contexts);
-  const [ns, _form] = namespace.getDocumentNamespace(editor.document);
+  const [ns, _form] = namespace.getNamespace(editor.document, editor.selections[0].active);
   void vscode.commands.executeCommand('setContext', 'calva:ns', ns);
   const sessionType = session.getReplSessionType(cljsLib.getStateValue('connected'));
   void vscode.commands.executeCommand('setContext', 'calva:replSessionType', sessionType);
