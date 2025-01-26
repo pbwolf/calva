@@ -4,6 +4,12 @@ Changes to Calva.
 
 ## [Unreleased]
 
+## [2.0.484] - 2025-01-26
+
+- [Have test runner show diff between "actual" and "expected"](https://github.com/BetterThanTomorrow/calva/issues/1007)
+- Fix: [cursor-context calva:ns is less accurate than the *ns* used by calva.evaluateSelection](https://github.com/BetterThanTomorrow/calva/issues/2708)
+- Fix: [Computing cursor-context calva:ns slows down editing and moving the cursor](https://github.com/BetterThanTomorrow/calva/issues/2707)
+
 ## [2.0.483] - 2025-01-08
 
 - Fix: [Paredit garbles while backspacing rapidly](https://github.com/BetterThanTomorrow/calva/issues/2611)
@@ -12,7 +18,7 @@ Changes to Calva.
 
 ## [2.0.482] - 2024-12-03
 
-- Fix: [Added 'replace-refer-all-with-alias' & 'replace-refer-all-with-refer' actions to calva.](https://github.com/BetterThanTomorrow/calva/issues/2667) 
+- Fix: [Added 'replace-refer-all-with-alias' & 'replace-refer-all-with-refer' actions to calva.](https://github.com/BetterThanTomorrow/calva/issues/2667)
 
 ## [2.0.481] - 2024-10-29
 
