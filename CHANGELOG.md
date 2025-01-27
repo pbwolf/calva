@@ -3,6 +3,9 @@
 Changes to Calva.
 
 ## [Unreleased]
+
+## [2.0.485] - 2025-01-27
+
 - Fix: [Stop considering a clj-kondo config as a valid project to start LSP processes](https://github.com/BetterThanTomorrow/calva/issues/2712)
 
 ## [2.0.484] - 2025-01-26
