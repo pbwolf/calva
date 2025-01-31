@@ -848,7 +848,7 @@
           },
           "calva.enableJSCompletions": {
             "type": "boolean",
-            "description": "Should Calva use suitible and bring you JavaScript completions? This is an experimental cider-nrepl feature. Disable if completions start to throw errors.",
+            "description": "Should Calva use suitable and bring you JavaScript completions? This is an experimental cider-nrepl feature. Disable if completions start to throw errors.",
             "default": true
           },
           "calva.autoOpenREPLWindow": {
