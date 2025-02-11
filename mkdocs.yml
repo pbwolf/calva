@@ -99,6 +99,7 @@ nav:
     - krell.md
     - rebl.md
     - parinfer.md
+    - java.md
   - Tips and Tricks:
     - emacs-keybindings.md
     - workspace-layouts.md
