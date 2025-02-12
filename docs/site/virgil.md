@@ -1,6 +1,6 @@
 ---
-title: Java (+ Virgil)
-description: Clojure and Java projects can be developed REPL driven thanks to Virgil
+title: REPL hot-reload Java code with Virgil
+description: REPL driven development of mixed Clojure / Java projects using Virgil
 ---
 
 # Mixed Clojure / Java projects
