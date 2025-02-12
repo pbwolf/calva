@@ -14,7 +14,7 @@ setup incl. a `build.clj`
 For Leiningen we have a similar setup documented [here](https://github.com/technomancy/leiningen/blob/github/doc/MIXED_PROJECTS.md) .
 
 ## Java development in VSCode
-VSCode has as well [first class support](https://code.visualstudio.com/docs/languages/java) for Java.
+VSCode has good [first class support](https://code.visualstudio.com/docs/languages/java) for Java.
 
 So we have 
 * a "mixed build" 
