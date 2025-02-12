@@ -1,5 +1,5 @@
 ---
-title: JAVA (+ Virgil)
+title: Java (+ Virgil)
 description: Clojure and Java projects can be developed REPL driven thanks to Virgil
 ---
 
@@ -16,7 +16,8 @@ For Leiningen we have a similar setup documented [here](https://github.com/techn
 ## Java development in VSCode
 VSCode has good [first class support](https://code.visualstudio.com/docs/languages/java) for Java.
 
-So we have 
+So we have
+
 * a "mixed build" 
 * comfortable editing of Clojure code with VSCode/Calva
 * comfortable editing of Java source code with VSCode/Java extensions
