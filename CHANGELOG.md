@@ -4,10 +4,13 @@ Changes to Calva.
 
 ## [Unreleased]
 
+## [2.0.486] - 2025-02-16
+
+- Fix: [Rewrapping to or from a Set introduces imbalance](https://github.com/BetterThanTomorrow/calva/issues/2726)
+
 ## [2.0.485] - 2025-01-27
 
-- Fix: [Stop considering a clj-kondo config as a valid project to start LSP processes](https://github.com/
-BetterThanTomorrow/calva/issues/2712)
+- Fix: [Stop considering a clj-kondo config as a valid project to start LSP processes](https://github.com/BetterThanTomorrow/calva/issues/2712)
 - Bump deps.clj to v1.12.0.1495-2
 
 ## [2.0.484] - 2025-01-26
