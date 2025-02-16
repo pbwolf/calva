@@ -318,7 +318,9 @@ const selectionsAfterEdits = (function () {
           : decodeInsertString(edits[ic]);
       const [point, delta] = affected;
       if (monotonicallyDecreasing != -1 && point >= monotonicallyDecreasing) {
-        throw new Error('Edits not back-to-front');
+        console.error(
+          'Edits not back-to-front. Inference of resulting selection might be inaccurate'
+        ); // TBD take the time to sort? or should commands emit edits in back-to-front order?
       }
       monotonicallyDecreasing = point;
       if (delta != 0) {
