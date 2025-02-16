@@ -891,7 +891,7 @@ export async function forwardSlurpSexp(
           : ([wsStartOffset, wsEndOffset, ' '] as const);
       return doc.model.edit(
         [
-          new ModelEdit('insertString', [newCloseOffset, close]),
+          new ModelEdit('changeRange', [newCloseOffset, newCloseOffset, close]),
           new ModelEdit('changeRange', changeArgs),
         ],
         {
@@ -901,7 +901,9 @@ export async function forwardSlurpSexp(
           ...extraOpts,
         }
       );
-    } else {
+    } else
+    {
+      
       const formatDepth = extraOpts['formatDepth'] ? extraOpts['formatDepth'] : 1;
       return forwardSlurpSexp(doc, cursor.offsetStart, {
         formatDepth: formatDepth + 1,
@@ -924,10 +926,11 @@ export async function backwardSlurpSexp(
     cursor.previous();
     cursor.backwardSexp(true, true);
     cursor.forwardWhitespace(false);
-    if (offset !== cursor.offsetStart) {
+    if (offset !== cursor.offsetStart)
+    {
       return doc.model.edit(
         [
-          new ModelEdit('deleteRange', [offset, tk.raw.length]),
+          new ModelEdit('changeRange', [offset, offset+tk.raw.length, '']),
           new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart, open]),
         ],
         {
@@ -937,7 +940,9 @@ export async function backwardSlurpSexp(
           ...extraOpts,
         }
       );
-    } else {
+    } else
+    {
+      
       const formatDepth = extraOpts['formatDepth'] ? extraOpts['formatDepth'] : 1;
       return backwardSlurpSexp(doc, cursor.offsetStart, {
         formatDepth: formatDepth + 1,
@@ -959,15 +964,10 @@ export async function forwardBarfSexp(
     cursor.backwardWhitespace();
     return doc.model.edit(
       [
-        new ModelEdit('deleteRange', [offset, close.length]),
-        new ModelEdit('insertString', [cursor.offsetStart, close]),
+        new ModelEdit('changeRange', [offset, offset+close.length, '']),
+        new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart, close])
       ],
-      start >= cursor.offsetStart
-        ? {
-            selections: [new ModelEditSelection(cursor.offsetStart)],
-            formatDepth: 2,
-          }
-        : { formatDepth: 2 }
+      {formatDepth: 2}
     );
   }
 }
@@ -982,21 +982,16 @@ export async function backwardBarfSexp(
   if (tk.type == 'open') {
     cursor.previous();
     const offset = cursor.offsetStart;
-    const close = cursor.getToken().raw;
+    const open = cursor.getToken().raw;
     cursor.next();
     cursor.forwardSexp(true, true);
     cursor.forwardWhitespace(false);
     return doc.model.edit(
       [
-        new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart, close]),
-        new ModelEdit('deleteRange', [offset, tk.raw.length]),
+        new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart, open]),
+        new ModelEdit('changeRange', [offset, offset+tk.raw.length, ''])
       ],
-      start <= cursor.offsetStart
-        ? {
-            selections: [new ModelEditSelection(cursor.offsetStart)],
-            formatDepth: 2,
-          }
-        : { formatDepth: 2 }
+      {formatDepth: 2}
     );
   }
 }

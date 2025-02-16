@@ -4,6 +4,7 @@ import { deepEqual as equal } from '../util/object';
 import { isNumber, isUndefined } from 'lodash';
 import { TextDocument, Selection, TextEditorEdit } from 'vscode';
 import _ = require('lodash');
+import { jackIn } from '../nrepl/jack-in';
 
 let scanner: Scanner;
 
@@ -291,17 +292,41 @@ export interface EditableDocument {
 // to compensate for insertions or deletions to their left.
 // Here we predict how edits will affect selections.
 const selectionsAfterEdits = (function () {
-  const decodeChangeRange = function (edit): [any, any] {
-    return [edit.args[0], edit.args[2].length - (edit.args[1] - edit.args[0])];
+  // 'Decoders' of ModelEdit:
+  //  [point, change-in-size, inserted-text-or-undefined]
+  const decodeChangeRange = function (edit): [any, any, any] {
+    const delta = edit.args[2].length - (edit.args[1] - edit.args[0]);
+    return [edit.args[0],
+      delta,
+      (delta > 0 ? edit.args[2] : undefined)
+    ];
   };
-  const decodeDeleteRange = function (edit): [any, any] {
-    return [edit.args[0], 0 - edit.args[1]];
+  const decodeDeleteRange = function (edit): [any, any, any] {
+    return [edit.args[0], 0 - edit.args[1], undefined];
   };
-  const decodeInsertString = function (edit): [any, any] {
-    return [edit.args[0] + edit.args[1].length, edit.args[1].length];
+  const decodeInsertString = function (edit): [any, any, any] {
+    return [edit.args[0] + edit.args[1].length, edit.args[1].length, edit.args[1]];
   };
-  const bump = function (n, [point, delta]) {
-    return n != undefined ? (n > point ? n + delta : n) : undefined;
+  const bump = function (n, [point, delta, inserted]) {
+    if (n == undefined)
+    {
+      return undefined;  
+    }
+    else
+    {
+      // The bump condition is usually >, but it is >= when inserting a list-open
+      const threshold = ['(', '[', '{', '#{'].includes(inserted) ? point - 1 : point;
+      if (n > threshold)
+      {
+        return n + delta;
+      }
+      else
+      {
+        return n;
+      }
+    }
+    // A Missing Detail: When inserting a list-open, the bump condition should be >= 
+    //return n != undefined ? (n > point ? n + delta : n) : undefined;
   };
   return function (edits, selections: ModelEditSelection[]) {
     // The ModelEdit array is in order by end-of-doc to start.
@@ -309,13 +334,16 @@ const selectionsAfterEdits = (function () {
     // according to the growth or shrinkage of each edit.
     let monotonicallyDecreasing = -1; // check edit order
     let retSelections: ModelEditSelection[] = [...selections];
-    for (let ic = 0; ic < edits.length; ic++) {
-      const affected: [any, any] =
+    for (let ic = 0; ic < edits.length; ic++)
+    {
+      
+      const affected: [any, any, any] =
         edits[ic].editFn == 'deleteRange'
           ? decodeDeleteRange(edits[ic])
           : edits[ic].editFn == 'changeRange'
           ? decodeChangeRange(edits[ic])
-          : decodeInsertString(edits[ic]);
+            : decodeInsertString(edits[ic]);
+      console.log("Adjusting for edit no.", ic, edits[ic], "decoded to", affected);
       const [point, delta] = affected;
       if (monotonicallyDecreasing != -1 && point >= monotonicallyDecreasing) {
         console.error(
@@ -325,12 +353,14 @@ const selectionsAfterEdits = (function () {
       monotonicallyDecreasing = point;
       if (delta != 0) {
         retSelections = retSelections.map(function (s: ModelEditSelection) {
-          return new ModelEditSelection(
+          const r = new ModelEditSelection(
             bump(s.end, affected),
             bump(s.active, affected),
             bump(s.start, affected),
             bump(s.end, affected)
           );
+          console.log("  bumping", s, "to", r);
+          return r;
         });
       }
     }
