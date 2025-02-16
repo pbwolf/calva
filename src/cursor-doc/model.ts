@@ -587,10 +587,12 @@ export class LineInputModel implements EditableModel {
   edit(edits: ModelEdit<ModelEditFunction>[], options: ModelEditOptions): Thenable<boolean> {
     return new Promise((resolve, reject) => {
       this.editTextNow(edits, options);
-      if (this.document && options.selections) {
-        this.document.selections = options.selections;
-      } else {
-        this.document.selections = selectionsAfterEdits(edits, this.document.selections);
+      if (this.document) {
+        if (options.selections) {
+          this.document.selections = options.selections;
+        } else {
+          this.document.selections = selectionsAfterEdits(edits, this.document.selections);
+        }
       }
       resolve(true);
     });

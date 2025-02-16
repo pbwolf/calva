@@ -752,7 +752,7 @@ export function rewrapSexpr(
     .sortBy((e) => -e.args[0])
     .value();
   return doc.model.edit(editsToApply, {
-    skipFormat: true,
+    skipFormat: selections.length > 1, // reformat-as-you-type works with only 1 selection
   });
 }
 
