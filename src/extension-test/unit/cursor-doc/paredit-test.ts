@@ -1803,7 +1803,7 @@ describe('paredit', () => {
           const b = docFromTextNotation('((str) fo|o)•((str) fo|1o)');
           await paredit.backwardSlurpSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
-        })
+        });
       });
     });
 
@@ -1840,7 +1840,7 @@ describe('paredit', () => {
           const b = docFromTextNotation('(str|) "foo"•(str|1) "foo"');
           await paredit.forwardBarfSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
-        })
+        });
       });
 
       describe('Barfing backwards', () => {
@@ -1861,7 +1861,7 @@ describe('paredit', () => {
           const b = docFromTextNotation('(str) (fo|o)•(str) (fo|1o)');
           await paredit.backwardBarfSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
-        })
+        });
       });
     });
 
