@@ -1757,6 +1757,12 @@ describe('paredit', () => {
           await paredit.forwardSlurpSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
+        it('slurps forward at multiple cursors', async () => {
+          const a = docFromTextNotation('(str|) "foo"•(str|1) "foo"');
+          const b = docFromTextNotation('(str| "foo")•(str|1 "foo")');
+          await paredit.forwardSlurpSexp(a);
+          expect(textAndSelection(a)).toEqual(textAndSelection(b));
+        });
       });
 
       describe('Slurping backwards', () => {
@@ -1792,6 +1798,12 @@ describe('paredit', () => {
           await paredit.backwardSlurpSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
+        it('slurps backward at multiple cursors', async () => {
+          const a = docFromTextNotation('(str) (fo|o)•(str) (fo|1o)');
+          const b = docFromTextNotation('((str) fo|o)•((str) fo|1o)');
+          await paredit.backwardSlurpSexp(a);
+          expect(textAndSelection(a)).toEqual(textAndSelection(b));
+        })
       });
     });
 
@@ -1823,6 +1835,12 @@ describe('paredit', () => {
           await paredit.forwardBarfSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
+        it('barfs forward at multiple cursors', async () => {
+          const a = docFromTextNotation('(str| "foo")•(str|1 "foo")');
+          const b = docFromTextNotation('(str|) "foo"•(str|1) "foo"');
+          await paredit.forwardBarfSexp(a);
+          expect(textAndSelection(a)).toEqual(textAndSelection(b));
+        })
       });
 
       describe('Barfing backwards', () => {
@@ -1838,6 +1856,12 @@ describe('paredit', () => {
           await paredit.backwardBarfSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
+        it('barfs backward at multiple cursors', async () => {
+          const a = docFromTextNotation('((str) fo|o)•((str) fo|1o)');
+          const b = docFromTextNotation('(str) (fo|o)•(str) (fo|1o)');
+          await paredit.backwardBarfSexp(a);
+          expect(textAndSelection(a)).toEqual(textAndSelection(b));
+        })
       });
     });
 
