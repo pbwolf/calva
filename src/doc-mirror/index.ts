@@ -95,9 +95,15 @@ export class DocumentModel implements EditableModel {
             this.document.selections = options.selections;
           }
           if (!options.skipFormat) {
-            return formatter.formatPosition(editor, true, {
-              'format-depth': options.formatDepth ?? 1,
-            });
+            // Reformatting exits multicursor mode. format-depth may vary among multiple selections.
+            // Pending resolution of issues, kip formatting if there are multiple cursors:
+            if (1 < options.selections.length) {
+              console.log('Skipping reformatting with multiple cursors.');
+            } else {
+              return formatter.formatPosition(editor, true, {
+                'format-depth': options.formatDepth ?? 1,
+              });
+            }
           }
         }
         return isFulfilled;
