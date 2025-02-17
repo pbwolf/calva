@@ -699,6 +699,28 @@ export async function wrapSexpr(
   }
 }
 
+function rewrapSexprEdits(doc, open, close, active) {
+  const cursor = doc.getTokenCursor(active);
+  if (cursor.backwardList()) {
+    cursor.backwardUpList();
+    const openStart = cursor.offsetStart;
+    const oldOpenLength = cursor.getToken().raw.length;
+    const oldOpenEnd = openStart + oldOpenLength;
+    if (cursor.forwardSexp()) {
+      const closeStart = cursor.offsetStart - close.length;
+      const closeEnd = cursor.offsetStart;
+      return [
+        new ModelEdit('changeRange', [closeStart, closeEnd, close]),
+        new ModelEdit('changeRange', [openStart, oldOpenEnd, open]),
+      ];
+    } else {
+      return [];
+    }
+  } else {
+    return [];
+  }
+}
+
 /**
  * 'Rewraps' the lists containing each cursor/selection, as provided by `selections`, with
  * the provided `open` and `close` strings.
@@ -722,38 +744,14 @@ export function rewrapSexpr(
   close: string,
   selections = [doc.selections[0]]
 ) {
-  const edits: ModelEdit<'changeRange'>[] = [];
-
-  selections.forEach((sel, index) => {
-    const { active } = sel;
-    const cursor = doc.getTokenCursor(active);
-    if (cursor.backwardList()) {
-      cursor.backwardUpList();
-      const openStart = cursor.offsetStart;
-      const oldOpenLength = cursor.getToken().raw.length;
-      const oldOpenEnd = openStart + oldOpenLength;
-      if (cursor.forwardSexp()) {
-        const closeStart = cursor.offsetStart - close.length;
-        const closeEnd = cursor.offsetStart;
-        edits.push(
-          new ModelEdit('changeRange', [closeStart, closeEnd, close]),
-          new ModelEdit('changeRange', [openStart, oldOpenEnd, open])
-        );
-      }
-    }
-  });
-
-  // Due to the nature of dealing with list boundaries, multiple cursors could be targeting
-  // the same lists, which will result in attempting to delete the same ranges twice. So we dedupe.
-  const uniqEdits = _.uniqWith(edits, _.isEqual);
-
-  // edit needs the ModelEdit array in order from end-of-doc to start
-  const editsToApply = _(uniqEdits)
-    .sortBy((e) => -e.args[0])
-    .value();
-  return doc.model.edit(editsToApply, {
-    //skipFormat: selections.length > 1, // reformat-as-you-type works with only 1 selection
-  });
+  const editsToApply = multicursorModelEdits(
+    (doc, start) => {
+      return rewrapSexprEdits(doc, open, close, start);
+    },
+    doc,
+    selections
+  );
+  return doc.model.edit(editsToApply, {});
 }
 
 export async function splitSexp(doc: EditableDocument, start: number = doc.selections[0].active) {
