@@ -9,12 +9,88 @@ import {
   EditableModel,
   ModelEditOptions,
   LineInputModel,
+  ModelEditRange,
   ModelEditSelection,
   ModelEditFunction,
+  selectionsAfterEdits,
 } from '../cursor-doc/model';
 import { isUndefined } from 'lodash';
 
 const documents = new Map<vscode.TextDocument, MirroredDocument>();
+
+/**
+ * Ranges-to-reformat, capturing distinct, disjoint lists surrounding the given edits.
+ * Positions in edits are relative to the document *before* any of the edits are applied.
+ */
+const reformatListRangesForEdits = (function () {
+  // 'Decoders' of the [start, length] outer bounds of the new content inserted by a ModelEdit
+  const pointsChangeRange = function (edit: ModelEdit<'changeRange'>): number[] {
+    return [edit.args[0], edit.args[1]];
+  };
+  const pointsDeleteRange = function (edit: ModelEdit<'deleteRange'>): number[] {
+    return [edit.args[0], edit.args[0]];
+  };
+  const pointsInsertString = function (edit: ModelEdit<'insertString'>): number[] {
+    return [edit.args[0], edit.args[0] + edit.args[1].length];
+  };
+  const pointsModelEdit = function (edit: ModelEdit<ModelEditFunction>): number[] {
+    const e: any = edit;
+    return edit.editFn == 'deleteRange'
+      ? pointsDeleteRange(e)
+      : edit.editFn == 'changeRange'
+      ? pointsChangeRange(e)
+      : pointsInsertString(e);
+  };
+
+  const listAroundPoint = function (
+    model: DocumentModel,
+    offset: number
+  ): ModelEditRange | undefined {
+    const cursor = model.getTokenCursor(offset);
+    if (cursor.forwardList()) {
+      const end = cursor.offsetStart;
+      if (cursor.backwardList()) {
+        const start = cursor.offsetStart;
+        return [start, end];
+      } else {
+        return undefined;
+      }
+    } else {
+      return undefined;
+    }
+  };
+
+  return function (model: DocumentModel, edits: ModelEdit<ModelEditFunction>[]): ModelEditRange[] {
+    // (The edits' positions are as-of the moment *before* application of the edits.)
+    // Translate each edit to a start- and end-point of new content.
+    // Translate those points to start- and end-points of sexprs.
+    // Compute disjoint ranges.
+    const listRanges: ModelEditRange[] = edits
+      .flatMap(pointsModelEdit)
+      .map((n: number) => listAroundPoint(model, n))
+      .filter((r: ModelEditRange | undefined) => r != undefined)
+      .sort((a: ModelEditRange, b: ModelEditRange) => b[1] - b[0] - (a[1] - a[0]));
+    // Discard ranges embedded in other ranges. O(n2)
+    // -Sort by length. Then traverse the list once. At each step,
+    // -traverse the remainder of the list once, weeding out ranges included in the outer range.
+    // -Use start==-1 as sentinel of a weeded-out range.
+    for (let i = 0; i < listRanges.length; i++) {
+      const outerRange = listRanges[i];
+      if (outerRange[0] != -1) {
+        for (let j = i + 1; j < listRanges.length; j++) {
+          const innerRange = listRanges[j];
+          if (innerRange[0] != -1) {
+            if (innerRange[0] >= outerRange[0] && innerRange[1] <= outerRange[1]) {
+              listRanges[j][0] = -1;
+            }
+          }
+        }
+      }
+    }
+    const disjointListRanges = listRanges.filter((r: ModelEditRange) => r[0] != -1);
+    return disjointListRanges;
+  };
+})();
 
 export class DocumentModel implements EditableModel {
   readonly lineEndingLength: number;
@@ -82,6 +158,18 @@ export class DocumentModel implements EditableModel {
   edit(modelEdits: ModelEdit<ModelEditFunction>[], options: ModelEditOptions): Thenable<boolean> {
     const editor = utilities.getActiveTextEditor(),
       undoStopBefore = !!options.undoStopBefore;
+    const listSelectionsForUnmodifiedDocument: ModelEditSelection[] = reformatListRangesForEdits(
+      this,
+      modelEdits
+    ).map((r: ModelEditRange): ModelEditSelection => {
+      return new ModelEditSelection(r[0], r[0], r[0], r[0]);
+    });
+    const reformattableSelectionsForModifiedDocument = selectionsAfterEdits(
+      modelEdits,
+      listSelectionsForUnmodifiedDocument
+    );
+    const reformatPositions = reformattableSelectionsForModifiedDocument.map((sel) => sel.active);
+    const reformatPositionsAsOf = this.document.document.version;
     return editor
       .edit(
         (builder) => {
@@ -95,15 +183,34 @@ export class DocumentModel implements EditableModel {
             this.document.selections = options.selections;
           }
           if (!options.skipFormat) {
+            if (reformatPositionsAsOf != this.document.document.version) {
+              console.warn('Reformatting plan is out-of-date. Skipping reformatting');
+              return Promise.resolve(true);
+            } else {
+              const reformatChange: formatter.ReformatChange[] = reformatPositions
+                .sort((a, b) => a - b)
+                .flatMap((p) => formatter.reformatChanges(this.document.document, p));
+              const reformattingEdits: ModelEdit<'changeRange'>[] = reformatChange.map(
+                (rc) => new ModelEdit('changeRange', [rc.start, rc.end, rc.text])
+              );
+              if (reformattingEdits.length) {
+                return editor.edit((builder) => {
+                  this.editNowTextOnly(reformattingEdits, { builder: builder, skipFormat: true });
+                });
+              } else {
+                return Promise.resolve(true);
+              }
+            }
+
             // Reformatting exits multicursor mode. format-depth may vary among multiple selections.
             // Pending resolution of issues, kip formatting if there are multiple cursors:
-            if (1 < this.document.selections.length) {
-              console.log('Skipping reformatting with multiple cursors.');
-            } else {
-              return formatter.formatPosition(editor, true, {
-                'format-depth': options.formatDepth ?? 1,
-              });
-            }
+            //if (1 < this.document.selections.length) {
+            //  console.log('Skipping reformatting with multiple cursors.');
+            //} else {
+            //     return formatter.formatPosition(editor, true, {
+            //       'format-depth': options.formatDepth ?? 1,
+            //     });
+            //}
           }
         }
         return isFulfilled;

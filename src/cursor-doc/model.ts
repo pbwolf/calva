@@ -290,7 +290,7 @@ export interface EditableDocument {
 // An editing transaction - array of ModelEdit - shifts the selection(s)
 // to compensate for insertions or deletions to their left.
 // Here we predict how edits will affect selections.
-const selectionsAfterEdits = (function () {
+export const selectionsAfterEdits = (function () {
   // 'Decoders' of ModelEdit:
   //  [point, change-in-size, inserted-text-or-undefined]
   const decodeChangeRange = function (edit): [any, any, any] {
@@ -315,8 +315,6 @@ const selectionsAfterEdits = (function () {
         return n;
       }
     }
-    // A Missing Detail: When inserting a list-open, the bump condition should be >=
-    //return n != undefined ? (n > point ? n + delta : n) : undefined;
   };
   return function (edits, selections: ModelEditSelection[]) {
     // The ModelEdit array is in order by end-of-doc to start.

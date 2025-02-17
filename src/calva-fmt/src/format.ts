@@ -150,6 +150,54 @@ export function formatPositionInfo(
   };
 }
 
+// TODO the MirrorDocument has a list of non-overlapping ranges to reformat. Can we avoid recomputing them here by a different algorithm & potentially introducing overlap?
+export function formatPositionInfo2(doc: vscode.TextDocument, onType: boolean, index: number) {
+  const mDoc = getDocument(doc);
+  const extraConfig = {};
+  if (mDoc.model.documentVersion != doc.version) {
+    console.warn(
+      'Model for formatPositionInfo2 is out of sync with document; will not reformat now'
+    );
+    return;
+  }
+  const cursor = mDoc.getTokenCursor(index);
+
+  const formatRange = _calculateFormatRange(extraConfig, cursor, index);
+  if (!formatRange) {
+    return;
+  }
+
+  const formatted: {
+    'range-text': string;
+    range: number[];
+    'new-index': number;
+  } = formatIndex(
+    doc.getText(),
+    formatRange,
+    index,
+    _convertEolNumToStringNotation(doc.eol),
+    onType,
+    {
+      ...config.getConfigNow(),
+      ...extraConfig,
+      'comment-form?': cursor.getFunctionName() === 'comment',
+    }
+  );
+  const range: vscode.Range = new vscode.Range(
+    doc.positionAt(formatted.range[0]),
+    doc.positionAt(formatted.range[1])
+  );
+  const newIndex: number = doc.offsetAt(range.start) + formatted['new-index'];
+  const previousText: string = doc.getText(range);
+  return {
+    formattedText: formatted['range-text'],
+    range: range,
+    previousText: previousText,
+    previousIndex: index,
+    newIndex: newIndex,
+  };
+}
+
 interface CljFmtConfig {
   'format-depth'?: number;
   'align-associative?'?: boolean;
@@ -209,6 +257,101 @@ function _formatDepth(cursor: LispTokenCursor) {
   return FormatDepthDefaults?.[cursorClone.getFunctionName()] ?? 1;
 }
 
+export type ReformatChange = {
+  start: number;
+  end: number;
+  text: string;
+};
+
+type SpacedUnit = [spaces: string, stuff: string];
+
+function spacedUnits(s: string): SpacedUnit[] {
+  const frags = s.match(/\s+|\S+/g);
+  // Ensure 1st item is of whitespace:
+  if (frags[0].match(/\S+/)) {
+    frags.unshift('');
+  }
+  // Ensure last item is of non-whitespace stuff:
+  if (frags.length % 2) {
+    frags.push('');
+  }
+  // Partition items into [space, stuff] pairs:
+  const units = [];
+  for (let i = 0; i < frags.length; i += 2) {
+    units.push([frags[i], frags[i + 1]]);
+  }
+  return units;
+}
+
+/** Edits to accomplish the reformatting at one point in the document.
+ * Edits are ordered from end- to start-of-document.
+ */
+// - For VS Code to move all cursors meaningfully,
+// - there should be one ModelEdit per insertion/removal of whitespace
+export function reformatChanges(doc: vscode.TextDocument, position: number): ReformatChange[] {
+  const formattedInfo = formatPositionInfo2(doc, true, position);
+  const a = spacedUnits(formattedInfo.previousText);
+  const b = spacedUnits(formattedInfo.formattedText);
+  // A single word in a or b may have been split into multiple words in the other.
+  // Adjust them to the finest granularity of words.
+  // The result should be an equal number of words in a and b:
+  const a2 = [],
+    b2 = [];
+  while (a.length && b.length) {
+    if (a[0][1] == b[0][1]) {
+      a2.push(a[0]);
+      b2.push(b[0]);
+      a.shift();
+      b.shift();
+    } else if (a[0][1].length < b[0][1].length) {
+      const bPart = b[0][1].slice(0, a[0][1].length);
+      if (a[0][1] == bPart) {
+        a2.push(a[0]);
+        a.shift();
+        b2.push([b[0][0], bPart]);
+        b[0][0] = '';
+        b[0][1] = b[0][1].slice(a[0][1].length);
+      } else {
+        console.error('a/b mismatch', a[0], b[0]);
+        break;
+      }
+    } else {
+      const aPart = a[0][1].slice(0, b[0][1].length);
+      if (b[0][1] == aPart) {
+        b2.push(b[0]);
+        b.shift();
+        a2.push([a[0][0], aPart]);
+        a[0][0] = '';
+        a[0][1] = a[0][1].slice(b[0][1].length);
+      } else {
+        console.error('a/b mismatch', a[0], b[0]);
+        break;
+      }
+    }
+  }
+  if (a2.length != b2.length) {
+    console.error('Uneven words in a and b', 'a2', a2, 'b2', b2);
+    return [];
+  } else {
+    const ret: ReformatChange[] = [];
+    let aPos = doc.offsetAt(formattedInfo.range.start);
+    for (let i = 0; i < a2.length; i++) {
+      const aSpaces = a2[i][0];
+      const bSpaces = b2[i][0];
+      if (aSpaces != bSpaces) {
+        const start: number = aPos;
+        const end: number = aPos + aSpaces.length;
+        const text: string = bSpaces;
+        ret.push({ start, end, text });
+      }
+      aPos += a2[i][0].length + a2[i][1].length;
+    }
+    // Order edits from end-of-doc to start:
+    ret.reverse();
+    return ret;
+  }
+}
+
 export async function formatPosition(
   editor: vscode.TextEditor,
   onType: boolean = false,
@@ -218,9 +361,7 @@ export async function formatPosition(
   const doc: vscode.TextDocument = editor.document,
     documentVersion = editor.document.version,
     formattedInfo = formatPositionInfo(editor, onType, extraConfig);
-  if (documentVersion != editor.document.version) {
-    return;
-  } else if (formattedInfo && formattedInfo.previousText != formattedInfo.formattedText) {
+  if (formattedInfo && formattedInfo.previousText != formattedInfo.formattedText) {
     return editor
       .edit(
         (textEditorEdit) => {
