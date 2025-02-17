@@ -882,7 +882,7 @@ function multicursorModelEdits(
     const edits: ModelEdit<'changeRange'>[] = selections.flatMap((selection) =>
       featureEdits(doc, selection.start)
     );
-    
+
     // Due to the nature of dealing with list boundaries, multiple cursors could be targeting
     // the same lists, which will result in attempting to delete the same ranges twice. So we dedupe.
     const uniqEdits = _.uniqWith(edits, _.isEqual);
