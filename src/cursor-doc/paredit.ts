@@ -878,19 +878,24 @@ function multicursorModelEdits(
   doc: EditableDocument,
   selections = doc.selections // TODO non-multicursor mode?
 ): ModelEdit<'changeRange'>[] {
-  const edits: ModelEdit<'changeRange'>[] = selections.flatMap((selection) =>
-    featureEdits(doc, selection.start)
-  );
+  try {
+    const edits: ModelEdit<'changeRange'>[] = selections.flatMap((selection) =>
+      featureEdits(doc, selection.start)
+    );
+    
+    // Due to the nature of dealing with list boundaries, multiple cursors could be targeting
+    // the same lists, which will result in attempting to delete the same ranges twice. So we dedupe.
+    const uniqEdits = _.uniqWith(edits, _.isEqual);
 
-  // Due to the nature of dealing with list boundaries, multiple cursors could be targeting
-  // the same lists, which will result in attempting to delete the same ranges twice. So we dedupe.
-  const uniqEdits = _.uniqWith(edits, _.isEqual);
-
-  // edit needs the ModelEdit array in order from end-of-doc to start
-  const editsToApply = _(uniqEdits)
-    .sortBy((e) => -e.args[0])
-    .value();
-  return editsToApply;
+    // edit needs the ModelEdit array in order from end-of-doc to start
+    const editsToApply = _(uniqEdits)
+      .sortBy((e) => -e.args[0])
+      .value();
+    return editsToApply;
+  } catch (oops) {
+    console.error('Problem in multicursorModelEdits');
+    console.error(oops);
+  }
 }
 
 function forwardSlurpSexpEdits(doc: EditableDocument, start: number): ModelEdit<'changeRange'>[] {
@@ -920,6 +925,8 @@ function forwardSlurpSexpEdits(doc: EditableDocument, start: number): ModelEdit<
     } else {
       return forwardSlurpSexpEdits(doc, cursor.offsetStart);
     }
+  } else {
+    return [];
   }
 }
 
@@ -946,6 +953,8 @@ function backwardSlurpSexpEdits(doc: EditableDocument, start: number): ModelEdit
     } else {
       return backwardSlurpSexpEdits(doc, cursor.offsetStart);
     }
+  } else {
+    return [];
   }
 }
 
@@ -976,6 +985,8 @@ function forwardBarfSexpEdits(doc: EditableDocument, start: number): ModelEdit<'
       new ModelEdit('changeRange', [offset, offset + close.length, '']),
       new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart + 1, close + budge]),
     ];
+  } else {
+    return [];
   }
 }
 
@@ -1001,6 +1012,8 @@ function backwardBarfSexpEdits(doc: EditableDocument, start: number): ModelEdit<
       new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart, open]),
       new ModelEdit('changeRange', [offset, offset + tk.raw.length, '']),
     ];
+  } else {
+    return [];
   }
 }
 

@@ -304,28 +304,42 @@ export function reformatChanges(doc: vscode.TextDocument, position: number): Ref
       a.shift();
       b.shift();
     } else if (a[0][1].length < b[0][1].length) {
+      const aWhole = a[0][1];
       const bPart = b[0][1].slice(0, a[0][1].length);
-      if (a[0][1] == bPart) {
+      if (aWhole == bPart) {
         a2.push(a[0]);
         a.shift();
         b2.push([b[0][0], bPart]);
-        b[0][0] = '';
-        b[0][1] = b[0][1].slice(a[0][1].length);
+        b[0] = ['', b[0][1].slice(aWhole.length)];
       } else {
-        console.error('a/b mismatch', a[0], b[0]);
-        break;
+        console.error('a/b mismatch wherein a is shorter', {
+          'a-next': a[0],
+          'b-next': b[0],
+          'a-past': a2,
+          'b-past': b2,
+          'a-whole': formattedInfo.previousText,
+          'b-whole': formattedInfo.formattedText,
+        });
+        return [];
       }
     } else {
+      const bWhole = b[0][1];
       const aPart = a[0][1].slice(0, b[0][1].length);
-      if (b[0][1] == aPart) {
+      if (bWhole == aPart) {
         b2.push(b[0]);
         b.shift();
         a2.push([a[0][0], aPart]);
-        a[0][0] = '';
-        a[0][1] = a[0][1].slice(b[0][1].length);
+        a[0] = ['', a[0][1].slice(bWhole.length)];
       } else {
-        console.error('a/b mismatch', a[0], b[0]);
-        break;
+        console.error('a/b mismatch wherein b is shorter', {
+          'a-next': a[0],
+          'b-next': b[0],
+          'a-past': a2,
+          'b-past': b2,
+          'a-whole': formattedInfo.previousText,
+          'b-whole': formattedInfo.formattedText,
+        });
+        return [];
       }
     }
   }

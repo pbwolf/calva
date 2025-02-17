@@ -158,63 +158,70 @@ export class DocumentModel implements EditableModel {
   edit(modelEdits: ModelEdit<ModelEditFunction>[], options: ModelEditOptions): Thenable<boolean> {
     const editor = utilities.getActiveTextEditor(),
       undoStopBefore = !!options.undoStopBefore;
-    const listSelectionsForUnmodifiedDocument: ModelEditSelection[] = reformatListRangesForEdits(
-      this,
-      modelEdits
-    ).map((r: ModelEditRange): ModelEditSelection => {
-      return new ModelEditSelection(r[0], r[0], r[0], r[0]);
-    });
-    const reformattableSelectionsForModifiedDocument = selectionsAfterEdits(
-      modelEdits,
-      listSelectionsForUnmodifiedDocument
-    );
-    const reformatPositions = reformattableSelectionsForModifiedDocument.map((sel) => sel.active);
-    const reformatPositionsAsOf = this.document.document.version;
-    return editor
-      .edit(
-        (builder) => {
-          this.editNowTextOnly(modelEdits, { builder: builder, ...options });
-        },
-        { undoStopBefore, undoStopAfter: false }
-      )
-      .then((isFulfilled) => {
-        if (isFulfilled) {
-          if (options.selections) {
-            this.document.selections = options.selections;
-          }
-          if (!options.skipFormat) {
-            if (reformatPositionsAsOf != this.document.document.version) {
-              console.warn('Reformatting plan is out-of-date. Skipping reformatting');
-              return Promise.resolve(true);
-            } else {
-              const reformatChange: formatter.ReformatChange[] = reformatPositions
-                .sort((a, b) => a - b)
-                .flatMap((p) => formatter.reformatChanges(this.document.document, p));
-              const reformattingEdits: ModelEdit<'changeRange'>[] = reformatChange.map(
-                (rc) => new ModelEdit('changeRange', [rc.start, rc.end, rc.text])
-              );
-              if (reformattingEdits.length) {
-                return editor.edit((builder) => {
-                  this.editNowTextOnly(reformattingEdits, { builder: builder, skipFormat: true });
-                });
-              } else {
+    try {
+      if (!modelEdits || modelEdits.length == 0) {
+        return Promise.resolve(true);
+      }
+
+      const listSelectionsForUnmodifiedDocument: ModelEditSelection[] = reformatListRangesForEdits(
+        this,
+        modelEdits
+      ).map((r: ModelEditRange): ModelEditSelection => {
+        return new ModelEditSelection(r[0], r[0], r[0], r[0]);
+      });
+      const reformattableSelectionsForModifiedDocument = selectionsAfterEdits(
+        modelEdits,
+        listSelectionsForUnmodifiedDocument
+      );
+      const reformatPositions = reformattableSelectionsForModifiedDocument.map((sel) => sel.active);
+      const reformatPositionsAsOf = this.document.document.version + 1;
+      return editor
+        .edit(
+          (builder) => {
+            this.editNowTextOnly(modelEdits, { builder: builder, ...options });
+          },
+          { undoStopBefore, undoStopAfter: false }
+        )
+        .then((isFulfilled) => {
+          if (isFulfilled) {
+            if (options.selections) {
+              this.document.selections = options.selections;
+            }
+            if (!options.skipFormat) {
+              if (reformatPositionsAsOf != this.document.document.version) {
+                console.warn('Reformatting plan is out-of-date. Skipping reformatting');
                 return Promise.resolve(true);
+              } else {
+                try {
+                  const reformatChange: formatter.ReformatChange[] = reformatPositions
+                    .sort((a, b) => a - b)
+                    .flatMap((p) => formatter.reformatChanges(this.document.document, p));
+                  const reformattingEdits: ModelEdit<'changeRange'>[] = reformatChange.map(
+                    (rc) => new ModelEdit('changeRange', [rc.start, rc.end, rc.text])
+                  );
+                  if (reformattingEdits.length) {
+                    return editor.edit((builder) => {
+                      this.editNowTextOnly(reformattingEdits, {
+                        builder: builder,
+                        skipFormat: true,
+                      });
+                    });
+                  } else {
+                    return Promise.resolve(true);
+                  }
+                } catch (error) {
+                  console.error('edit A:' + error.message);
+                  console.dir(error);
+                }
               }
             }
-
-            // Reformatting exits multicursor mode. format-depth may vary among multiple selections.
-            // Pending resolution of issues, kip formatting if there are multiple cursors:
-            //if (1 < this.document.selections.length) {
-            //  console.log('Skipping reformatting with multiple cursors.');
-            //} else {
-            //     return formatter.formatPosition(editor, true, {
-            //       'format-depth': options.formatDepth ?? 1,
-            //     });
-            //}
           }
-        }
-        return isFulfilled;
-      });
+          return isFulfilled;
+        });
+    } catch (oops) {
+      console.error('edit B:' + oops.message);
+      console.dir(oops);
+    }
   }
 
   private insertEdit(
