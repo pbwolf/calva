@@ -866,23 +866,24 @@ export async function killForwardList(doc: EditableDocument, [start, end]: [numb
 }
 
 /**
- * multicursorModelEdits translates each of the selections to changeRange  
+ * multicursorModelEdits translates each of the selections to changeRange
  * edits using the given featureEdits function, deduplicates the edits,
  * and sorts the edits from end-to-start of document so they will
- * produce equivalent results in VS Code's TextEditor and the Model. 
+ * produce equivalent results in VS Code's TextEditor and the Model.
  * @param featureEdits ModelEdits for a single selection
  * @param doc
- * @param selections 
+ * @param selections
  * @returns edits to apply to the document
  */
 function multicursorModelEdits(
-  featureEdits : (doc: EditableDocument, start: number)=>ModelEdit<'changeRange'>[],
+  featureEdits: (doc: EditableDocument, start: number) => ModelEdit<'changeRange'>[],
   doc: EditableDocument,
   selections = doc.selections // TODO non-multicursor mode?
 ): ModelEdit<'changeRange'>[] {
-  const edits: ModelEdit<'changeRange'>[] =
-    selections.flatMap((selection) => featureEdits(doc, selection.start));
-  
+  const edits: ModelEdit<'changeRange'>[] = selections.flatMap((selection) =>
+    featureEdits(doc, selection.start)
+  );
+
   // Due to the nature of dealing with list boundaries, multiple cursors could be targeting
   // the same lists, which will result in attempting to delete the same ranges twice. So we dedupe.
   const uniqEdits = _.uniqWith(edits, _.isEqual);
@@ -894,7 +895,7 @@ function multicursorModelEdits(
   return editsToApply;
 }
 
-function forwardSlurpSexpEdits(doc: EditableDocument, start: number) : ModelEdit<'changeRange'>[] {
+function forwardSlurpSexpEdits(doc: EditableDocument, start: number): ModelEdit<'changeRange'>[] {
   const cursor = doc.getTokenCursor(start);
   cursor.forwardList();
   if (cursor.getToken().type == 'close') {
@@ -915,20 +916,16 @@ function forwardSlurpSexpEdits(doc: EditableDocument, start: number) : ModelEdit
           ? ([currentCloseOffset, currentCloseOffset + close.length, ''] as const)
           : ([wsStartOffset, wsEndOffset, ' '] as const);
       return [
-          new ModelEdit('changeRange', [newCloseOffset, newCloseOffset, close]),
-          new ModelEdit('changeRange', changeArgs),
-        ];
-    } else
-    {
-        return forwardSlurpSexpEdits(doc, cursor.offsetStart);
+        new ModelEdit('changeRange', [newCloseOffset, newCloseOffset, close]),
+        new ModelEdit('changeRange', changeArgs),
+      ];
+    } else {
+      return forwardSlurpSexpEdits(doc, cursor.offsetStart);
     }
   }
 }
 
-export async function forwardSlurpSexp(
-  doc: EditableDocument,
-  selections = doc.selections
-) {
+export async function forwardSlurpSexp(doc: EditableDocument, selections = doc.selections) {
   const editsToApply = multicursorModelEdits(forwardSlurpSexpEdits, doc, selections);
   return doc.model.edit(editsToApply, {});
 }
@@ -943,31 +940,23 @@ function backwardSlurpSexpEdits(doc: EditableDocument, start: number): ModelEdit
     cursor.previous();
     cursor.backwardSexp(true, true);
     cursor.forwardWhitespace(false);
-    if (offset !== cursor.offsetStart)
-    {
+    if (offset !== cursor.offsetStart) {
       return [
-          new ModelEdit('changeRange', [offset, offset+tk.raw.length, '']),
-          new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart, open]),
-        ];
-    } else
-    {   
+        new ModelEdit('changeRange', [offset, offset + tk.raw.length, '']),
+        new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart, open]),
+      ];
+    } else {
       return backwardSlurpSexpEdits(doc, cursor.offsetStart);
     }
   }
 }
 
-export async function backwardSlurpSexp(
-  doc: EditableDocument,
-  selections = doc.selections
-) {
+export async function backwardSlurpSexp(doc: EditableDocument, selections = doc.selections) {
   const editsToApply = multicursorModelEdits(backwardSlurpSexpEdits, doc, selections);
   return doc.model.edit(editsToApply, {});
 }
 
-function forwardBarfSexpEdits(
-  doc: EditableDocument,
-  start: number
-) : ModelEdit<'changeRange'>[] {
+function forwardBarfSexpEdits(doc: EditableDocument, start: number): ModelEdit<'changeRange'>[] {
   const cursor = doc.getTokenCursor(start);
   cursor.forwardList();
   if (cursor.getToken().type == 'close') {
@@ -976,36 +965,30 @@ function forwardBarfSexpEdits(
     cursor.backwardSexp(true, true);
     cursor.backwardWhitespace();
     // Why not insert the close at position cursor.offsetStart? Because of the effect
-    // on the cursor position that automatically results from the document change. 
+    // on the cursor position that automatically results from the document change.
     // Example:
     //  initial  [a|] b
     //  slurp!   [a| b]
     //  barf!    [a]| b
     // To avoid such a slurp/barf asymmetry,
     // don't insert the closer into a zero-length place,
-    // but rather change the character that's there to two characters: the closer and it. 
-    const budge = doc.model.getText(cursor.offsetStart, cursor.offsetStart + 1)
+    // but rather change the character that's there to two characters: the closer and it.
+    const budge = doc.model.getText(cursor.offsetStart, cursor.offsetStart + 1);
     return [
-        new ModelEdit('changeRange', [offset, offset+close.length, '']),
-      new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart+1, close+budge])
-      ];
+      new ModelEdit('changeRange', [offset, offset + close.length, '']),
+      new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart + 1, close + budge]),
+    ];
   }
 }
 
-export async function forwardBarfSexp(
-  doc: EditableDocument,
-  selections = doc.selections
-) {
+export async function forwardBarfSexp(doc: EditableDocument, selections = doc.selections) {
   const editsToApply = multicursorModelEdits(forwardBarfSexpEdits, doc, selections);
   return doc.model.edit(editsToApply, {
     formatDepth: 2,
   });
 }
 
-function backwardBarfSexpEdits(
-  doc: EditableDocument,
-  start: number
-) : ModelEdit<'changeRange'>[]{
+function backwardBarfSexpEdits(doc: EditableDocument, start: number): ModelEdit<'changeRange'>[] {
   const cursor = doc.getTokenCursor(start);
   cursor.backwardList();
   const tk = cursor.getPrevToken();
@@ -1016,17 +999,14 @@ function backwardBarfSexpEdits(
     cursor.next();
     cursor.forwardSexp(true, true);
     cursor.forwardWhitespace(false);
-    return  [
-        new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart, open]),
-        new ModelEdit('changeRange', [offset, offset+tk.raw.length, ''])
-      ];
+    return [
+      new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart, open]),
+      new ModelEdit('changeRange', [offset, offset + tk.raw.length, '']),
+    ];
   }
 }
 
-export async function backwardBarfSexp(
-  doc: EditableDocument,
-  selections = doc.selections
-) {
+export async function backwardBarfSexp(doc: EditableDocument, selections = doc.selections) {
   const editsToApply = multicursorModelEdits(backwardBarfSexpEdits, doc, selections);
   return doc.model.edit(editsToApply, {
     formatDepth: 2,

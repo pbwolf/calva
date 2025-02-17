@@ -296,10 +296,7 @@ const selectionsAfterEdits = (function () {
   //  [point, change-in-size, inserted-text-or-undefined]
   const decodeChangeRange = function (edit): [any, any, any] {
     const delta = edit.args[2].length - (edit.args[1] - edit.args[0]);
-    return [edit.args[0],
-      delta,
-      (delta > 0 ? edit.args[2] : undefined)
-    ];
+    return [edit.args[0], delta, delta > 0 ? edit.args[2] : undefined];
   };
   const decodeDeleteRange = function (edit): [any, any, any] {
     return [edit.args[0], 0 - edit.args[1], undefined];
@@ -308,24 +305,18 @@ const selectionsAfterEdits = (function () {
     return [edit.args[0] + edit.args[1].length, edit.args[1].length, edit.args[1]];
   };
   const bump = function (n, [point, delta, inserted]) {
-    if (n == undefined)
-    {
-      return undefined;  
-    }
-    else
-    {
+    if (n == undefined) {
+      return undefined;
+    } else {
       // The bump condition is usually >, but it is >= when inserting a list-open
       const threshold = ['(', '[', '{', '#{'].includes(inserted) ? point - 1 : point;
-      if (n > threshold)
-      {
+      if (n > threshold) {
         return n + delta;
-      }
-      else
-      {
+      } else {
         return n;
       }
     }
-    // A Missing Detail: When inserting a list-open, the bump condition should be >= 
+    // A Missing Detail: When inserting a list-open, the bump condition should be >=
     //return n != undefined ? (n > point ? n + delta : n) : undefined;
   };
   return function (edits, selections: ModelEditSelection[]) {
@@ -334,15 +325,13 @@ const selectionsAfterEdits = (function () {
     // according to the growth or shrinkage of each edit.
     let monotonicallyDecreasing = -1; // check edit order
     let retSelections: ModelEditSelection[] = [...selections];
-    for (let ic = 0; ic < edits.length; ic++)
-    {
-      
+    for (let ic = 0; ic < edits.length; ic++) {
       const affected: [any, any, any] =
         edits[ic].editFn == 'deleteRange'
           ? decodeDeleteRange(edits[ic])
           : edits[ic].editFn == 'changeRange'
           ? decodeChangeRange(edits[ic])
-            : decodeInsertString(edits[ic]);
+          : decodeInsertString(edits[ic]);
       const [point, delta] = affected;
       if (monotonicallyDecreasing != -1 && point >= monotonicallyDecreasing) {
         console.error(
