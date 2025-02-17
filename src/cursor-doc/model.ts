@@ -343,7 +343,6 @@ const selectionsAfterEdits = (function () {
           : edits[ic].editFn == 'changeRange'
           ? decodeChangeRange(edits[ic])
             : decodeInsertString(edits[ic]);
-      console.log("Adjusting for edit no.", ic, edits[ic], "decoded to", affected);
       const [point, delta] = affected;
       if (monotonicallyDecreasing != -1 && point >= monotonicallyDecreasing) {
         console.error(
@@ -359,7 +358,6 @@ const selectionsAfterEdits = (function () {
             bump(s.start, affected),
             bump(s.end, affected)
           );
-          console.log("  bumping", s, "to", r);
           return r;
         });
       }
