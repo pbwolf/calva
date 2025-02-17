@@ -4,7 +4,6 @@ import { deepEqual as equal } from '../util/object';
 import { isNumber, isUndefined } from 'lodash';
 import { TextDocument, Selection, TextEditorEdit } from 'vscode';
 import _ = require('lodash');
-import { jackIn } from '../nrepl/jack-in';
 
 let scanner: Scanner;
 
