@@ -97,18 +97,16 @@ export async function formatRange(document: vscode.TextDocument, range: vscode.R
   return vscode.workspace.applyEdit(wsEdit);
 }
 
-export function formatPositionInfo(
-  editor: vscode.TextEditor,
-  onType: boolean = false,
+export function formatDocIndexInfo(
+  doc: vscode.TextDocument,
+  onType: boolean,
+  index: number,
   extraConfig: CljFmtConfig = {}
 ) {
-  const doc: vscode.TextDocument = editor.document;
-  const index = doc.offsetAt(editor.selections[0].active);
   const mDoc = getDocument(doc);
-
   if (mDoc.model.documentVersion != doc.version) {
     console.warn(
-      'Model for formatPositionInfo is out of sync with document; will not reformat now'
+      'Model for formatDocIndexInfo is out of sync with document; skipping reformatting'
     );
     return;
   }
@@ -141,60 +139,18 @@ export function formatPositionInfo(
   );
   const newIndex: number = doc.offsetAt(range.start) + formatted['new-index'];
   const previousText: string = doc.getText(range);
+  const formattedText = formatted['range-text'];
+  const changes =
+    previousText == formattedText
+      ? []
+      : reformatChanges(doc.offsetAt(range.start), previousText, formattedText);
   return {
-    formattedText: formatted['range-text'],
+    formattedText: formattedText,
     range: range,
     previousText: previousText,
     previousIndex: index,
     newIndex: newIndex,
-  };
-}
-
-// TODO the MirrorDocument has a list of non-overlapping ranges to reformat. Can we avoid recomputing them here by a different algorithm & potentially introducing overlap?
-export function formatPositionInfo2(doc: vscode.TextDocument, onType: boolean, index: number) {
-  const mDoc = getDocument(doc);
-  const extraConfig = {};
-  if (mDoc.model.documentVersion != doc.version) {
-    console.warn(
-      'Model for formatPositionInfo2 is out of sync with document; will not reformat now'
-    );
-    return;
-  }
-  const cursor = mDoc.getTokenCursor(index);
-
-  const formatRange = _calculateFormatRange(extraConfig, cursor, index);
-  if (!formatRange) {
-    return;
-  }
-
-  const formatted: {
-    'range-text': string;
-    range: number[];
-    'new-index': number;
-  } = formatIndex(
-    doc.getText(),
-    formatRange,
-    index,
-    _convertEolNumToStringNotation(doc.eol),
-    onType,
-    {
-      ...config.getConfigNow(),
-      ...extraConfig,
-      'comment-form?': cursor.getFunctionName() === 'comment',
-    }
-  );
-  const range: vscode.Range = new vscode.Range(
-    doc.positionAt(formatted.range[0]),
-    doc.positionAt(formatted.range[1])
-  );
-  const newIndex: number = doc.offsetAt(range.start) + formatted['new-index'];
-  const previousText: string = doc.getText(range);
-  return {
-    formattedText: formatted['range-text'],
-    range: range,
-    previousText: previousText,
-    previousIndex: index,
-    newIndex: newIndex,
+    changes: changes,
   };
 }
 
@@ -292,18 +248,10 @@ function spacedUnits(s: string): SpacedUnit[] {
   return units;
 }
 
-/** Edits to accomplish the reformatting at one point in the document.
- * Edits are ordered from end- to start-of-document.
- */
-// - For VS Code to move all cursors meaningfully,
-// - there should be one ModelEdit per insertion/removal of whitespace
-export function reformatChanges(doc: vscode.TextDocument, position: number): ReformatChange[] {
-  const formattedInfo = formatPositionInfo2(doc, true, position);
-  const a = spacedUnits(formattedInfo.previousText);
-  const b = spacedUnits(formattedInfo.formattedText);
-  // A single word in a or b may have been split into multiple words in the other.
-  // Adjust them to the finest granularity of words.
-  // The result should be an equal number of words in a and b:
+/* A single word in a or b may have been split into multiple words in the other (eg at punctuation).
+   Adjust a and b to the finest granularity of words in either of them.
+*/
+function alignSpacedUnits(a: SpacedUnit[], b: SpacedUnit[]): [SpacedUnit[], SpacedUnit[]] {
   const a2 = [],
     b2 = [];
   while (a.length && b.length) {
@@ -321,15 +269,13 @@ export function reformatChanges(doc: vscode.TextDocument, position: number): Ref
         b2.push([b[0][0], bPart]);
         b[0] = ['', b[0][1].slice(aWhole.length)];
       } else {
-        console.error('a/b mismatch wherein a is shorter', {
+        console.error('alignSpacedUnits: a/b mismatch wherein a is shorter', {
           'a-next': a[0],
           'b-next': b[0],
           'a-past': a2,
           'b-past': b2,
-          'a-whole': formattedInfo.previousText,
-          'b-whole': formattedInfo.formattedText,
         });
-        return [];
+        return [undefined, undefined];
       }
     } else {
       const bWhole = b[0][1];
@@ -340,39 +286,54 @@ export function reformatChanges(doc: vscode.TextDocument, position: number): Ref
         a2.push([a[0][0], aPart]);
         a[0] = ['', a[0][1].slice(bWhole.length)];
       } else {
-        console.error('a/b mismatch wherein b is shorter', {
+        console.error('alignSpacedUnits: a/b mismatch wherein b is shorter', {
           'a-next': a[0],
           'b-next': b[0],
           'a-past': a2,
           'b-past': b2,
-          'a-whole': formattedInfo.previousText,
-          'b-whole': formattedInfo.formattedText,
         });
-        return [];
+        return [undefined, undefined];
       }
     }
   }
+  return [a2, b2];
+}
+/** Edits to accomplish the reformatting at one point in the document.
+ * Edits are ordered from end- to start-of-document.
+ */
+// - For VS Code to move all cursors meaningfully when reformatting,
+// - there should be one replacement operation per insertion/removal of whitespace
+// - (and none for non-whitespace)
+export function reformatChanges(
+  offset: number,
+  previousText: string,
+  formattedText: string
+): ReformatChange[] {
+  // const formattedInfo = formatDocIndexInfo(doc, true, index);
+  const a = spacedUnits(previousText);
+  const b = spacedUnits(formattedText);
+  // A single word in a or b may have been split into multiple words in the other (eg at punctuation).
+  // Adjust a and b to the finest granularity of words in either of them.
+  const [a2, b2] = alignSpacedUnits(a, b);
+  // The result should be an equal number of words in a and b:
   if (a2.length != b2.length) {
     console.error('Uneven words in a and b', 'a2', a2, 'b2', b2);
     return [];
-  } else {
-    const ret: ReformatChange[] = [];
-    let aPos = doc.offsetAt(formattedInfo.range.start);
-    for (let i = 0; i < a2.length; i++) {
-      const aSpaces = a2[i][0];
-      const bSpaces = b2[i][0];
-      if (aSpaces != bSpaces) {
-        const start: number = aPos;
-        const end: number = aPos + aSpaces.length;
-        const text: string = bSpaces;
-        ret.push({ start, end, text });
-      }
-      aPos += a2[i][0].length + a2[i][1].length;
-    }
-    // Order edits from end-of-doc to start:
-    ret.reverse();
-    return ret;
   }
+  const ret: ReformatChange[] = [];
+  let aPos = offset; //doc.offsetAt(formattedInfo.range.start);
+  for (let i = 0; i < a2.length; i++) {
+    const aSpaces = a2[i][0];
+    const bSpaces = b2[i][0];
+    if (aSpaces != bSpaces) {
+      const start: number = aPos;
+      const end: number = aPos + aSpaces.length;
+      const text: string = bSpaces;
+      ret.unshift({ start, end, text });
+    }
+    aPos += a2[i][0].length + a2[i][1].length;
+  }
+  return ret;
 }
 
 export async function formatPosition(
@@ -380,53 +341,28 @@ export async function formatPosition(
   onType: boolean = false,
   extraConfig: CljFmtConfig = {}
 ): Promise<boolean> {
-  // Stop trying if ever the document version changes - don't want to trample User's work
-  const doc: vscode.TextDocument = editor.document,
-    documentVersion = editor.document.version,
-    formattedInfo = formatPositionInfo(editor, onType, extraConfig);
-  if (formattedInfo && formattedInfo.previousText != formattedInfo.formattedText) {
-    return editor
-      .edit(
-        (textEditorEdit) => {
-          textEditorEdit.replace(formattedInfo.range, formattedInfo.formattedText);
-        },
-        { undoStopAfter: false, undoStopBefore: false }
-      )
-      .then((onFulfilled: boolean) => {
-        if (onFulfilled) {
-          if (documentVersion + 1 == editor.document.version) {
-            editor.selections = [
-              new vscode.Selection(
-                doc.positionAt(formattedInfo.newIndex),
-                doc.positionAt(formattedInfo.newIndex)
-              ),
-            ];
-          }
-        }
-        return onFulfilled;
-      });
-  } else if (formattedInfo) {
-    return new Promise((resolve, _reject) => {
-      if (formattedInfo.newIndex != formattedInfo.previousIndex) {
-        editor.selections = [
-          new vscode.Selection(
-            doc.positionAt(formattedInfo.newIndex),
-            doc.positionAt(formattedInfo.newIndex)
-          ),
-        ];
+  const doc: vscode.TextDocument = editor.document;
+  const changes = editor.selections
+    .map((sel) => doc.offsetAt(sel.active))
+    .sort((a, b) => a - b)
+    .flatMap((index) => {
+      const formattedInfo = formatDocIndexInfo(doc, onType, index, extraConfig);
+      return formattedInfo ? formattedInfo.changes : [];
+    });
+  return editor.edit((textEditorEdit) => {
+    let monotonicallyDecreasing = -1;
+    changes.forEach((change) => {
+      const pos1 = doc.positionAt(change.start);
+      const pos2 = doc.positionAt(change.end);
+      // with multiple cursors, especially near each other, the edits may overlap.
+      // VS Code rejects overlapping edits. Skip them:
+      if (monotonicallyDecreasing == -1 || change.end < monotonicallyDecreasing) {
+        const range = new vscode.Range(pos1, pos2);
+        textEditorEdit.replace(range, change.text);
+        monotonicallyDecreasing = change.start;
       }
-      resolve(true);
     });
-  } else if (!onType && !outputWindow.isResultsDoc(doc)) {
-    return formatRange(
-      doc,
-      new vscode.Range(doc.positionAt(0), doc.positionAt(doc.getText().length))
-    );
-  } else {
-    return new Promise((resolve, _reject) => {
-      resolve(true);
-    });
-  }
+  });
 }
 
 // Debounce format-as-you-type and toss it aside if User seems still to be working

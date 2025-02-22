@@ -23,7 +23,7 @@ const documents = new Map<vscode.TextDocument, MirroredDocument>();
  * Positions in edits are relative to the document *before* any of the edits are applied.
  */
 const reformatListRangesForEdits = (function () {
-  // 'Decoders' of the [start, length] outer bounds of the new content inserted by a ModelEdit
+  // 'Decoders' of the [start, end] outer bounds of the new content inserted by a ModelEdit
   const pointsChangeRange = function (edit: ModelEdit<'changeRange'>): number[] {
     return [edit.args[0], edit.args[1]];
   };
@@ -195,7 +195,25 @@ export class DocumentModel implements EditableModel {
                 try {
                   const reformatChange: formatter.ReformatChange[] = reformatPositions
                     .sort((a, b) => a - b)
-                    .flatMap((p) => formatter.reformatChanges(this.document.document, p));
+                    .flatMap((p) => {
+                      const doc = this.document.document;
+                      const formattedInfo = formatter.formatDocIndexInfo(doc, true, p);
+                      return formattedInfo.changes;
+                    })
+                    .filter(function () {
+                      // With multiple cursors, the reformat edits might overlap.
+                      // VS Code rejects an edit transaction if any operations overlap.
+                      // Remove overlapping edits:
+                      let monotonicallyDecreasing = -1;
+                      return function (change) {
+                        if (monotonicallyDecreasing == -1 || change.end < monotonicallyDecreasing) {
+                          monotonicallyDecreasing = change.start;
+                          return true;
+                        } else {
+                          return false;
+                        }
+                      };
+                    });
                   const reformattingEdits: ModelEdit<'changeRange'>[] = reformatChange.map(
                     (rc) => new ModelEdit('changeRange', [rc.start, rc.end, rc.text])
                   );
