@@ -257,18 +257,27 @@ function _formatDepth(cursor: LispTokenCursor) {
   return FormatDepthDefaults?.[cursorClone.getFunctionName()] ?? 1;
 }
 
+//----------
+
 export type ReformatChange = {
   start: number;
   end: number;
   text: string;
 };
 
+/** whitespace and substance. Pre-format and re-formatted text can be expressed
+ * as a series of SpacedUnit. The substance parts can be aligned and then
+ * changes in size can be translated to TextEdits.
+ */
 type SpacedUnit = [spaces: string, stuff: string];
 
+/** Array of [spaces, nonspaces] which if concatenated would equal s.
+ * Treats comma and JS regex \s as spaces.
+ */
 function spacedUnits(s: string): SpacedUnit[] {
-  const frags = s.match(/\s+|\S+/g);
+  const frags = s.match(/[\s,]+|[^\s,]+/g);
   // Ensure 1st item is of whitespace:
-  if (frags[0].match(/\S+/)) {
+  if (frags[0].match(/[^\s,]/)) {
     frags.unshift('');
   }
   // Ensure last item is of non-whitespace stuff:
