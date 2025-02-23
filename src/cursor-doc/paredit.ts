@@ -966,24 +966,26 @@ export async function backwardSlurpSexp(doc: EditableDocument, selections = doc.
 function forwardBarfSexpEdits(doc: EditableDocument, start: number): ModelEdit<'changeRange'>[] {
   const cursor = doc.getTokenCursor(start);
   cursor.forwardList();
+  const cOldClose = cursor.clone();
   if (cursor.getToken().type == 'close') {
-    const offset = cursor.offsetStart,
-      close = cursor.getToken().raw;
+    const close = cursor.getToken().raw;
     cursor.backwardSexp(true, true);
     cursor.backwardWhitespace();
-    // Why not insert the close at position cursor.offsetStart? Because of the effect
-    // on the cursor position that automatically results from the document change.
-    // Example:
-    //  initial  [a|] b
-    //  slurp!   [a| b]
-    //  barf!    [a]| b
-    // To avoid such a slurp/barf asymmetry,
-    // don't insert the closer into a zero-length place,
-    // but rather change the character that's there to two characters: the closer and it.
-    const budge = doc.model.getText(cursor.offsetStart, cursor.offsetStart + 1);
+    const cBarfStart = cursor.clone();
+    const barfedText = doc.model.getText(cBarfStart.offsetStart, cOldClose.offsetStart);
+    // To scoot the cursor into the shortened list if it wasn't already there,
+    // delete the whitespace, barfed form and closing mark
+    // (this will scoot subsequent cursors backward),
+    // and simultaneously reinsert the closing mark, deleted stuff, and the character
+    // that used to follow the closing mark in place of that character.
+    const budge = doc.model.getText(cOldClose.offsetEnd, cOldClose.offsetEnd + 1);
     return [
-      new ModelEdit('changeRange', [offset, offset + close.length, '']),
-      new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart + 1, close + budge]),
+      new ModelEdit('changeRange', [
+        cOldClose.offsetEnd,
+        cOldClose.offsetEnd + 1,
+        close + barfedText + budge,
+      ]),
+      new ModelEdit('changeRange', [cBarfStart.offsetStart, cOldClose.offsetEnd, '']),
     ];
   } else {
     return [];
@@ -992,9 +994,7 @@ function forwardBarfSexpEdits(doc: EditableDocument, start: number): ModelEdit<'
 
 export async function forwardBarfSexp(doc: EditableDocument, selections = doc.selections) {
   const editsToApply = multicursorModelEdits(forwardBarfSexpEdits, doc, selections);
-  return doc.model.edit(editsToApply, {
-    formatDepth: 2,
-  });
+  return doc.model.edit(editsToApply, {});
 }
 
 function backwardBarfSexpEdits(doc: EditableDocument, start: number): ModelEdit<'changeRange'>[] {
@@ -1019,9 +1019,7 @@ function backwardBarfSexpEdits(doc: EditableDocument, start: number): ModelEdit<
 
 export async function backwardBarfSexp(doc: EditableDocument, selections = doc.selections) {
   const editsToApply = multicursorModelEdits(backwardBarfSexpEdits, doc, selections);
-  return doc.model.edit(editsToApply, {
-    formatDepth: 2,
-  });
+  return doc.model.edit(editsToApply, {});
 }
 
 export function open(

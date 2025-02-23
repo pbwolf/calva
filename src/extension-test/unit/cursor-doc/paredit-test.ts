@@ -1835,6 +1835,18 @@ describe('paredit', () => {
           await paredit.forwardBarfSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
+        it('keeps cursor within the list that lost a member (1)', async () => {
+          const a = docFromTextNotation('(str |"foo")');
+          const b = docFromTextNotation('(str|) "foo"');
+          await paredit.forwardBarfSexp(a);
+          expect(textAndSelection(a)).toEqual(textAndSelection(b));
+        });
+        it('keeps cursor within the list that lost a member (2)', async () => {
+          const a = docFromTextNotation('(str "foo"|)');
+          const b = docFromTextNotation('(str|) "foo"');
+          await paredit.forwardBarfSexp(a);
+          expect(textAndSelection(a)).toEqual(textAndSelection(b));
+        });
         it('barfs forward at multiple cursors', async () => {
           const a = docFromTextNotation('(str| "foo")•(str|1 "foo")');
           const b = docFromTextNotation('(str|) "foo"•(str|1) "foo"');

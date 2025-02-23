@@ -310,7 +310,7 @@ export const selectionsAfterEdits = (function () {
       // The bump condition is usually >, but it is >= when inserting a list-open
       const threshold = ['(', '[', '{', '#{'].includes(inserted) ? point - 1 : point;
       if (n > threshold) {
-        return n + delta;
+        return Math.max(n + delta, point);
       } else {
         return n;
       }
