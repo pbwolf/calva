@@ -1,7 +1,12 @@
 import * as vscode from 'vscode';
 import * as config from '../../formatter-config';
 import * as outputWindow from '../../repl-window/repl-doc';
-import { getIndent, getDocumentOffset, getDocument } from '../../doc-mirror/index';
+import {
+  getIndent,
+  getDocumentOffset,
+  getDocument,
+  nonOverlappingRangesForListsAroundOffsets,
+} from '../../doc-mirror/index';
 import { formatTextAtRange, formatText, jsify } from '../../../out/cljs-lib/cljs-lib';
 import * as util from '../../utilities';
 import * as cursorDocUtils from '../../cursor-doc/utilities';
@@ -49,10 +54,10 @@ export async function indentPosition(position: vscode.Position, document: vscode
   }
 }
 
-export function formatRangeEdits(
+function rangeReformatChanges(
   document: vscode.TextDocument,
   originalRange: vscode.Range
-): vscode.TextEdit[] | undefined {
+): ReformatChange[] | undefined {
   const mirrorDoc = getDocument(document);
   const startIndex = document.offsetAt(originalRange.start);
   const cursor = mirrorDoc.getTokenCursor(startIndex);
@@ -82,18 +87,25 @@ export function formatRangeEdits(
     }`;
     const whitespaceEdits =
       originalText == newText ? [] : reformatChanges(startIndex, originalText, newText);
-    return whitespaceEdits.map((chg) =>
-      vscode.TextEdit.replace(
-        new vscode.Range(document.positionAt(chg.start), document.positionAt(chg.end)),
-        chg.text
-      )
-    );
+    return whitespaceEdits;
   }
+}
+
+export function formatRangeTextEdits(
+  document: vscode.TextDocument,
+  originalRange: vscode.Range
+): vscode.TextEdit[] | undefined {
+  return rangeReformatChanges(document, originalRange).map((chg) =>
+    vscode.TextEdit.replace(
+      new vscode.Range(document.positionAt(chg.start), document.positionAt(chg.end)),
+      chg.text
+    )
+  );
 }
 
 export async function formatRange(document: vscode.TextDocument, range: vscode.Range) {
   const wsEdit: vscode.WorkspaceEdit = new vscode.WorkspaceEdit();
-  const edits = formatRangeEdits(document, range);
+  const edits = formatRangeTextEdits(document, range);
 
   if (isUndefined(edits)) {
     console.error('formatRangeEdits returned undefined!', cloneDeep({ document, range }));
@@ -104,17 +116,15 @@ export async function formatRange(document: vscode.TextDocument, range: vscode.R
   return vscode.workspace.applyEdit(wsEdit);
 }
 
-export function formatDocIndexInfo(
+/** [start,end] of range to reformat with attention to offset 'index' */
+export function formatDocIndexRange(
   doc: vscode.TextDocument,
-  onType: boolean,
   index: number,
-  extraConfig: CljFmtConfig = {}
+  extraConfig: CljFmtConfig
 ) {
   const mDoc = getDocument(doc);
   if (mDoc.model.documentVersion != doc.version) {
-    console.warn(
-      'Model for formatDocIndexInfo is out of sync with document; skipping reformatting'
-    );
+    console.warn('Model is out of sync with document; skipping reformatting');
     return;
   }
   const cursor = mDoc.getTokenCursor(index);
@@ -125,6 +135,21 @@ export function formatDocIndexInfo(
     ? formatRangeSmall
     : [0, doc.getText().length];
 
+  return formatRange;
+}
+
+export function formatDocIndexInfo(
+  doc: vscode.TextDocument,
+  onType: boolean,
+  index: number,
+  extraConfig: CljFmtConfig = {}
+) {
+  const mDoc = getDocument(doc);
+  const cursor = mDoc.getTokenCursor(index);
+  const formatRange = formatDocIndexRange(doc, index, extraConfig);
+  if (!formatRange) {
+    return;
+  }
   const formatted: {
     'range-text': string;
     range: number[];
@@ -354,16 +379,36 @@ export async function formatPosition(
   extraConfig: CljFmtConfig = {}
 ): Promise<boolean> {
   const doc: vscode.TextDocument = editor.document;
-  const changes = editor.selections
+  const mDoc = getDocument(doc);
+  const ranges = editor.selections
     .map((sel) => doc.offsetAt(sel.active))
-    .sort((a, b) => a - b)
-    .flatMap((index) => {
-      const formattedInfo = formatDocIndexInfo(doc, onType, index, extraConfig);
-      return formattedInfo ? formattedInfo.changes : [];
-    });
+    .map((index) => formatDocIndexRange(doc, index, extraConfig))
+    .filter((rng) => rng != undefined);
+  const wholeDocRange: [number, number] = [0, doc.getText().length];
+  const wholeDoc =
+    ranges.filter((r) => r[0] == wholeDocRange[0] && r[1] == wholeDocRange[1]).length > 0;
+  let orderedChanges: ReformatChange[] = undefined;
+  if (wholeDoc) {
+    orderedChanges = rangeReformatChanges(
+      doc,
+      new vscode.Range(doc.positionAt(wholeDocRange[0]), doc.positionAt(wholeDocRange[1]))
+    );
+  } else {
+    const dedupedRanges = nonOverlappingRangesForListsAroundOffsets(
+      mDoc,
+      ranges.flatMap((rng) => [rng[0], rng[1]])
+    );
+    orderedChanges = dedupedRanges
+      .map((rng) => rng[0])
+      .flatMap((index) => {
+        const formattedInfo = formatDocIndexInfo(doc, onType, index, extraConfig);
+        return formattedInfo ? formattedInfo.changes : [];
+      })
+      .sort((a, b) => b.start - a.start);
+  }
   return editor.edit((textEditorEdit) => {
     let monotonicallyDecreasing = -1;
-    changes.forEach((change) => {
+    orderedChanges.forEach((change) => {
       const pos1 = doc.positionAt(change.start);
       const pos2 = doc.positionAt(change.end);
       // with multiple cursors, especially near each other, the edits may overlap.

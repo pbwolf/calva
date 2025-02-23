@@ -8,6 +8,6 @@ export class RangeEditProvider implements vscode.DocumentRangeFormattingEditProv
     _options,
     _token
   ) {
-    return formatter.formatRangeEdits(document, range);
+    return formatter.formatRangeTextEdits(document, range);
   }
 }
