@@ -119,10 +119,11 @@ export function formatDocIndexInfo(
   }
   const cursor = mDoc.getTokenCursor(index);
 
-  const formatRange = _calculateFormatRange(extraConfig, cursor, index);
-  if (!formatRange) {
-    return;
-  }
+  // If a top-level form "needs" formatting and is indented, reformat the whole document:
+  const formatRangeSmall = _calculateFormatRange(extraConfig, cursor, index);
+  const formatRange: [number, number] = formatRangeSmall
+    ? formatRangeSmall
+    : [0, doc.getText().length];
 
   const formatted: {
     'range-text': string;
@@ -167,6 +168,10 @@ interface CljFmtConfig {
   'remove-multiple-non-indenting-spaces?'?: boolean;
 }
 
+/** [Start,end] of the range to reformat around the cursor, with special cases:
+ * - Undefined if not within a top-level form.
+ * - Undefined if the form to reformat would be a top-level form that is indented.
+ */
 function _calculateFormatRange(
   config: CljFmtConfig,
   cursor: LispTokenCursor,
