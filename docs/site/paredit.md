@@ -223,6 +223,7 @@ There is an ongoing effort to support simultaneous multicursor editing with Pare
 - Selection (except for `Select Current Form` - coming soon!)
 - Rewrap
 - Slurp and Barf
+- Format Current Form
 
 ### Toggling Multicursor per command
 
