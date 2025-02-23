@@ -80,7 +80,14 @@ export function formatRangeEdits(
     const newText = `${formattedText.startsWith(leadingWs) ? '' : leadingWs}${formattedText}${
       formattedText.endsWith(trailingWs) ? '' : trailingWs
     }`;
-    return [vscode.TextEdit.replace(originalRange, newText)];
+    const whitespaceEdits =
+      originalText == newText ? [] : reformatChanges(startIndex, originalText, newText);
+    return whitespaceEdits.map((chg) =>
+      vscode.TextEdit.replace(
+        new vscode.Range(document.positionAt(chg.start), document.positionAt(chg.end)),
+        chg.text
+      )
+    );
   }
 }
 
