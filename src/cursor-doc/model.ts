@@ -308,12 +308,10 @@ export const selectionsAfterEdits = (function () {
       return undefined;
     } else {
       // The bump condition is usually >, but it is >= when inserting a list-open
-      const threshold = ['(', '[', '{', '#{'].includes(inserted) ? point - 1 : point;
-      if (n > threshold) {
-        return Math.max(n + delta, point);
-      } else {
-        return n;
-      }
+      const lastInsertedChar = !inserted || inserted == '' ? '' : inserted[inserted.length - 1];
+      const threshold = ['(', '[', '{', '#{'].includes(lastInsertedChar) ? point - 1 : point;
+      const p = n > threshold ? Math.max(n + delta, point) : n;
+      return p;
     }
   };
   return function (edits, selections: ModelEditSelection[]) {
@@ -330,7 +328,7 @@ export const selectionsAfterEdits = (function () {
           ? decodeChangeRange(edits[ic])
           : decodeInsertString(edits[ic]);
       const [point, delta] = affected;
-      if (monotonicallyDecreasing != -1 && point >= monotonicallyDecreasing) {
+      if (monotonicallyDecreasing != -1 && point > monotonicallyDecreasing) {
         console.error(
           'Edits not back-to-front. Inference of resulting selection might be inaccurate'
         ); // TBD take the time to sort? or should commands emit edits in back-to-front order?

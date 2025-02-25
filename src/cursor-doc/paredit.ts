@@ -1002,15 +1002,19 @@ function backwardBarfSexpEdits(doc: EditableDocument, start: number): ModelEdit<
   cursor.backwardList();
   const tk = cursor.getPrevToken();
   if (tk.type == 'open') {
+    const cBarfStart = cursor.clone();
     cursor.previous();
-    const offset = cursor.offsetStart;
+    const cOpen = cursor.clone();
     const open = cursor.getToken().raw;
     cursor.next();
     cursor.forwardSexp(true, true);
     cursor.forwardWhitespace(false);
+    const cBarfEnd = cursor.clone();
+    const barfedText = doc.model.getText(cBarfStart.offsetStart, cBarfEnd.offsetStart);
+    const insertText = barfedText + open;
     return [
-      new ModelEdit('changeRange', [cursor.offsetStart, cursor.offsetStart, open]),
-      new ModelEdit('changeRange', [offset, offset + tk.raw.length, '']),
+      new ModelEdit('changeRange', [cOpen.offsetStart, cBarfEnd.offsetStart, '']),
+      new ModelEdit('changeRange', [cOpen.offsetStart, cOpen.offsetStart, insertText]),
     ];
   } else {
     return [];

@@ -1874,6 +1874,12 @@ describe('paredit', () => {
           await paredit.backwardBarfSexp(a);
           expect(textAndSelection(a)).toEqual(textAndSelection(b));
         });
+        it('keeps cursor within the list that lost its first member', async () => {
+          const a = docFromTextNotation('(|(str) foo)');
+          const b = docFromTextNotation('(str) (|foo)');
+          await paredit.backwardBarfSexp(a);
+          expect(textAndSelection(a)).toEqual(textAndSelection(b));
+        });
       });
     });
 
