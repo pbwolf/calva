@@ -162,7 +162,9 @@ export class DocumentModel implements EditableModel {
           (builder) => {
             this.editNowTextOnly(modelEdits, { builder: builder, ...options });
           },
-          { undoStopBefore, undoStopAfter: false }
+          //{ undoStopBefore, undoStopAfter: false }
+          //{ undoStopBefore: options.skipFormat, undoStopAfter: true } //no
+          { undoStopAfter: options.skipFormat, undoStopBefore: true }
         )
         .then((isFulfilled) => {
           if (isFulfilled) {
@@ -196,6 +198,29 @@ export class DocumentModel implements EditableModel {
                         }
                       };
                     });
+                  const doc = this.document.document;
+                  // Do this edit if !skipFormat, even if there are no edits to do, to lay the undo stop.
+                  return editor.edit(
+                    (textEditorEdit) => {
+                      let monotonicallyDecreasing = -1;
+                      reformatChange.forEach((change) => {
+                        const pos1 = doc.positionAt(change.start);
+                        const pos2 = doc.positionAt(change.end);
+                        // with multiple cursors, especially near each other, the edits may overlap.
+                        // VS Code rejects overlapping edits. Skip them:
+                        if (monotonicallyDecreasing == -1 || change.end < monotonicallyDecreasing) {
+                          const range = new vscode.Range(pos1, pos2);
+                          textEditorEdit.replace(range, change.text);
+                          monotonicallyDecreasing = change.start;
+                        } else {
+                          console.warn('Reformat is out-of-order');
+                        }
+                      });
+                    },
+                    //{ undoStopBefore: true, undoStopAfter: false } //no?
+                    { undoStopBefore: false, undoStopAfter: true }
+                  );
+                  /*
                   const reformattingEdits: ModelEdit<'changeRange'>[] = reformatChange.map(
                     (rc) => new ModelEdit('changeRange', [rc.start, rc.end, rc.text])
                   );
@@ -209,6 +234,7 @@ export class DocumentModel implements EditableModel {
                   } else {
                     return Promise.resolve(true);
                   }
+                  */
                 } catch (error) {
                   console.error('edit A:' + error.message);
                   console.dir(error);
