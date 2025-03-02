@@ -57,12 +57,7 @@ export function replace(
         newText,
       ]),
     ],
-    {
-      ...{
-        undoStopBefore: true,
-      },
-      ...options,
-    }
+    options
   );
 }
 

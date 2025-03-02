@@ -374,7 +374,7 @@ const pareditCommands = [
         await copyRangeToClipboard(doc, range);
       }
       await paredit.killForwardList(doc, range).then((isFulfilled) => {
-        return paredit.spliceSexp(doc, doc.selections[0].active, false);
+        return paredit.spliceSexp(doc, doc.selections[0].active);
       });
     },
   },
@@ -386,7 +386,7 @@ const pareditCommands = [
         await copyRangeToClipboard(doc, range);
       }
       await paredit.killBackwardList(doc, range).then((isFulfilled) => {
-        return paredit.spliceSexp(doc, doc.selections[0].active, false);
+        return paredit.spliceSexp(doc, doc.selections[0].active);
       });
     },
   },
