@@ -148,7 +148,7 @@ export class DocumentModel implements EditableModel {
     const reformatChange: formatter.ReformatChange[] = sortedUniq(offsets.sort((a, b) => a - b))
       .flatMap((p) => {
         const doc = this.document.document;
-        const formattedInfo = formatter.formatDocIndexInfo(doc, true, p); // @@@ SPLIT UP TO REDUCE DUPLICATION
+        const formattedInfo = formatter.formatDocIndexInfo(doc, true, p);
         return formattedInfo.changes;
       })
       .filter(
@@ -171,10 +171,8 @@ export class DocumentModel implements EditableModel {
           };
         })()
       );
-    //const reformatChange = sortedUniq(reformatChange1); // does not work, does not notice adjacent duplicates
     const doc = this.document.document;
     // Do an edit transaction, even if insubstantial, just for the undoStopAfter=true.
-    console.info('Reformat: n edits=', reformatChange.length);
     return editor.edit(
       (textEditorEdit) => {
         let monotonicallyDecreasing = -1;
@@ -249,7 +247,7 @@ export class DocumentModel implements EditableModel {
     } else {
       return editCompletion.then((isFulfilled) => {
         if (!isFulfilled) {
-          console.warn('Structural edit was not fulfilled!');
+          console.warn('Edit was not fulfilled');
         } else {
           if (postEditPlan.forDocumentVersion != this.document.document.version) {
             console.warn('Post-edit preempted by another edit');
@@ -264,9 +262,9 @@ export class DocumentModel implements EditableModel {
                 return this.postEditReformat(editor, postEditPlan.reformatOffsets).then(
                   (reformatFulfilled) => {
                     if (!reformatFulfilled) {
-                      console.warn('Post-structural-edit reformat was not fulfilled!');
+                      console.warn('Post-edit reformat was not fulfilled');
                     }
-                    return true; // because the structural edit is the important thing, and it was fulfilled
+                    return true; // because the main edit was fulfilled
                   }
                 );
               }
