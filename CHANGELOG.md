@@ -4,6 +4,8 @@ Changes to Calva.
 
 ## [Unreleased]
 
+- Fix: [Reformat all edited locations after multicursor structural edit](Reformat all edited locations after multicursor structural edit)
+
 ## [2.0.486] - 2025-02-16
 
 - Fix: [Rewrapping to or from a Set introduces imbalance](https://github.com/BetterThanTomorrow/calva/issues/2726)
