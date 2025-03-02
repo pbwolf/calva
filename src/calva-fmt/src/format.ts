@@ -119,7 +119,7 @@ export function formatDocIndexRange(
 ): [number, number] {
   const mDoc = getDocument(doc);
   if (mDoc.model.documentVersion != doc.version) {
-    console.warn('Model is out of sync with document; skipping reformatting');
+    console.warn('Model is stale; skipping reformatting');
     return;
   }
   const cursor = mDoc.getTokenCursor(index);
@@ -294,12 +294,7 @@ function alignSpacedUnits(a: SpacedUnit[], b: SpacedUnit[]): [SpacedUnit[], Spac
         b2.push([b[0][0], bPart]);
         b[0] = ['', b[0][1].slice(aWhole.length)];
       } else {
-        console.error('alignSpacedUnits: a/b mismatch wherein a is shorter', {
-          'a-next': a[0],
-          'b-next': b[0],
-          'a-past': a2,
-          'b-past': b2,
-        });
+        console.error('alignSpacedUnits: a/b mismatch wherein a is shorter');
         return [undefined, undefined];
       }
     } else {
@@ -311,12 +306,7 @@ function alignSpacedUnits(a: SpacedUnit[], b: SpacedUnit[]): [SpacedUnit[], Spac
         a2.push([a[0][0], aPart]);
         a[0] = ['', a[0][1].slice(bWhole.length)];
       } else {
-        console.error('alignSpacedUnits: a/b mismatch wherein b is shorter', {
-          'a-next': a[0],
-          'b-next': b[0],
-          'a-past': a2,
-          'b-past': b2,
-        });
+        console.error('alignSpacedUnits: a/b mismatch wherein b is shorter');
         return [undefined, undefined];
       }
     }
@@ -335,7 +325,6 @@ export function reformatChanges(
   previousText: string,
   formattedText: string
 ): ReformatChange[] {
-  // const formattedInfo = formatDocIndexInfo(doc, true, index);
   const a = spacedUnits(previousText);
   const b = spacedUnits(formattedText);
   // A single word in a or b may have been split into multiple words in the other (eg at punctuation).
@@ -347,7 +336,7 @@ export function reformatChanges(
     return [];
   }
   const ret: ReformatChange[] = [];
-  let aPos = offset; //doc.offsetAt(formattedInfo.range.start);
+  let aPos = offset;
   for (let i = 0; i < a2.length; i++) {
     const aSpaces = a2[i][0];
     const bSpaces = b2[i][0];

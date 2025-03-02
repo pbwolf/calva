@@ -302,7 +302,7 @@ export const selectionsAfterEdits = (function () {
   const decodeInsertString = function (edit): [any, any, any] {
     return [edit.args[0] + edit.args[1].length, edit.args[1].length, edit.args[1]];
   };
-  const bump = function (n, [point, delta, inserted]) {
+  const bump = function (n: number, [point, delta, inserted]) {
     if (n == undefined) {
       return undefined;
     } else {
@@ -313,7 +313,7 @@ export const selectionsAfterEdits = (function () {
       return p;
     }
   };
-  return function (edits, selections: ModelEditSelection[]) {
+  return function (edits: ModelEdit<ModelEditFunction>[], selections: ModelEditSelection[]) {
     // The ModelEdit array is in order by end-of-doc to start.
     // Traverse it, bumping selections
     // according to the growth or shrinkage of each edit.
@@ -330,7 +330,7 @@ export const selectionsAfterEdits = (function () {
       if (monotonicallyDecreasing != -1 && point > monotonicallyDecreasing) {
         console.error(
           'Edits not back-to-front. Inference of resulting selection might be inaccurate'
-        ); // TBD take the time to sort? or should commands emit edits in back-to-front order?
+        );
       }
       monotonicallyDecreasing = point;
       if (delta != 0) {

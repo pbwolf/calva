@@ -751,9 +751,7 @@ export function rewrapSexpr(
   const editsToApply = _(uniqEdits)
     .sortBy((e) => -e.args[0])
     .value();
-  return doc.model.edit(editsToApply, {
-    //skipFormat: selections.length > 1, // reformat-as-you-type works with only 1 selection
-  });
+  return doc.model.edit(editsToApply, {});
 }
 
 export async function splitSexp(doc: EditableDocument, start: number = doc.selections[0].active) {

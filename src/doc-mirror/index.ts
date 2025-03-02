@@ -78,13 +78,6 @@ const reformatListRangesForEdits = (function () {
       .flatMap(pointsModelEdit)
       .map((n: number) => model.getTokenCursor(n).rangeForList(1));
     const wholeDoc = listRanges1.filter((x) => x == undefined).length > 0;
-
-    // Modify listRanges:
-    // Discard ranges embedded in other ranges. O(n^2)
-    // -Sort by length. Then traverse the list once for 'outer ranges'. At each step,
-    // -traverse the remainder of the list once for 'inner ranges',
-    //   discarding inner ranges included in the outer range.
-    // -Instead of moving array elements, just mark the bad ones using start=-1.
     return wholeDoc ? undefined : nonOverlappingRanges(listRanges1);
   };
 })();
@@ -151,148 +144,137 @@ export class DocumentModel implements EditableModel {
   }
 
   private postEditReformat(editor: vscode.TextEditor, offsets: number[]): Thenable<boolean> {
-    try {
-      // Now that the document has been edited, calculate the reformatting:
-      const reformatChange: formatter.ReformatChange[] = sortedUniq(offsets.sort((a, b) => a - b))
-        .flatMap((p) => {
-          const doc = this.document.document;
-          const formattedInfo = formatter.formatDocIndexInfo(doc, true, p); // @@@ SPLIT UP TO REDUCE DUPLICATION
-          return formattedInfo.changes;
-        })
-        .filter(
-          (function () {
-            // With multiple cursors, the reformat edits might overlap.
-            // VS Code rejects an edit transaction if any operations overlap.
-            // Remove overlapping edits:
-            let monotonicallyDecreasing = -1;
-            return function (change: formatter.ReformatChange) {
-              if (change.end < change.start) {
-                console.error('Backwards change!');
-                return false;
-              }
-              if (monotonicallyDecreasing == -1 || change.end <= monotonicallyDecreasing) {
-                monotonicallyDecreasing = change.start;
-                return true;
-              } else {
-                return false;
-              }
-            };
-          })()
-        );
-      //const reformatChange = sortedUniq(reformatChange1); // does not work, does not notice adjacent duplicates
-      const doc = this.document.document;
-      // Do an edit transaction, even if insubstantial, just for the undoStopAfter=true.
-      console.info('Reformat: n edits=', reformatChange.length);
-      return editor.edit(
-        (textEditorEdit) => {
+    // Now that the document has been edited, calculate the reformatting:
+    const reformatChange: formatter.ReformatChange[] = sortedUniq(offsets.sort((a, b) => a - b))
+      .flatMap((p) => {
+        const doc = this.document.document;
+        const formattedInfo = formatter.formatDocIndexInfo(doc, true, p); // @@@ SPLIT UP TO REDUCE DUPLICATION
+        return formattedInfo.changes;
+      })
+      .filter(
+        (function () {
+          // With multiple cursors, the reformat edits might overlap.
+          // VS Code rejects an edit transaction if any operations overlap.
+          // Remove overlapping edits:
           let monotonicallyDecreasing = -1;
-          let prior = undefined; // weed out adjacent duplicates
-          reformatChange.forEach((change) => {
-            // with multiple cursors, especially near each other, the edits may overlap.
-            // VS Code rejects overlapping edits. Skip them:
-            if (monotonicallyDecreasing == -1 || change.end <= monotonicallyDecreasing) {
-              const pos1 = doc.positionAt(change.start);
-              const pos2 = doc.positionAt(change.end);
-              if (prior == undefined || prior.start != change.start || prior.end != change.end) {
-                prior = change;
-                const range = new vscode.Range(pos1, pos2);
-                textEditorEdit.replace(range, change.text);
-                monotonicallyDecreasing = change.start;
-              }
-            } else {
-              console.warn('Reformat is still out-of-order');
+          return function (change: formatter.ReformatChange) {
+            if (change.end < change.start) {
+              console.error('Backwards change!');
+              return false;
             }
-          });
-        },
-        // undoStopBefore, to fall in the same undo unit as the preceding edit.
-        { undoStopBefore: false, undoStopAfter: true }
+            if (monotonicallyDecreasing == -1 || change.end <= monotonicallyDecreasing) {
+              monotonicallyDecreasing = change.start;
+              return true;
+            } else {
+              return false;
+            }
+          };
+        })()
       );
-    } catch (error) {
-      console.error('postEditReformat encountered a problem:' + error.message);
-      console.dir(error);
-      return Promise.resolve(false);
-    }
+    //const reformatChange = sortedUniq(reformatChange1); // does not work, does not notice adjacent duplicates
+    const doc = this.document.document;
+    // Do an edit transaction, even if insubstantial, just for the undoStopAfter=true.
+    console.info('Reformat: n edits=', reformatChange.length);
+    return editor.edit(
+      (textEditorEdit) => {
+        let monotonicallyDecreasing = -1;
+        let prior = undefined; // weed out adjacent duplicates
+        reformatChange.forEach((change) => {
+          // with multiple cursors, especially near each other, the edits may overlap.
+          // VS Code rejects overlapping edits. Skip them:
+          if (monotonicallyDecreasing == -1 || change.end <= monotonicallyDecreasing) {
+            const pos1 = doc.positionAt(change.start);
+            const pos2 = doc.positionAt(change.end);
+            if (prior == undefined || prior.start != change.start || prior.end != change.end) {
+              prior = change;
+              const range = new vscode.Range(pos1, pos2);
+              textEditorEdit.replace(range, change.text);
+              monotonicallyDecreasing = change.start;
+            }
+          } else {
+            console.warn('Reformat is still out-of-order');
+          }
+        });
+      },
+      // undoStopBefore, to fall in the same undo unit as the preceding edit.
+      { undoStopBefore: false, undoStopAfter: true }
+    );
   }
 
   edit(modelEdits: ModelEdit<ModelEditFunction>[], options: ModelEditOptions): Thenable<boolean> {
-    const editor = utilities.getActiveTextEditor();
     // undoStopBefore===false joins this edit with the prior one in a single undoable unit.
     const undoStopBefore = !(options.undoStopBefore === false);
-    try {
-      // Nothing to do?
-      if (!modelEdits || modelEdits.length == 0) {
-        return Promise.resolve(true);
-      }
-      // Reformatting will retouch the spots affected by edits.
-      // The edits are stated in terms of the document-as-it-is, before any of the edits.
-      // Reformat's offsets must be in post-edit terms (i.e., "a later as-is", before reformatting).
-      // Translate pre-edit to post-edit offsets:
-      const ranges: ModelEditRange[] = reformatListRangesForEdits(this, modelEdits);
-      const ranges2: ModelEditRange[] = ranges
-        ? ranges
-        : [[0, this.document.document.getText().length]];
-      const postEditPlanDraft = {
-        forDocumentVersion: this.document.document.version + 1, // none of this matters if another edit intervenes
-        reformatOffsets: options.skipFormat
-          ? undefined
-          : selectionsAfterEdits(
-              modelEdits,
-              ranges2.flatMap((r: ModelEditRange): ModelEditSelection[] => {
-                return [
-                  new ModelEditSelection(r[0], r[0], r[0], r[0]),
-                  new ModelEditSelection(r[1], r[1], r[1], r[1]),
-                ];
-              })
-            ).flatMap((sel) => [sel.anchor, sel.active]),
-        selections: options.selections,
-      };
-      const postEditPlan =
-        postEditPlanDraft.reformatOffsets || postEditPlanDraft.selections
-          ? postEditPlanDraft
-          : undefined;
-      // Do the edits (with undoStopAfter=false if we will reformat,
-      // to include the reformatting in the same undo-unit as the edit).
-      const editCompletion = editor.edit(
-        (builder) => {
-          this.editNowTextOnly(modelEdits, { builder: builder, ...options });
-        },
-        { undoStopAfter: options.skipFormat, undoStopBefore }
-      );
-      if (!postEditPlan) {
-        return editCompletion;
-      } else {
-        return editCompletion.then((isFulfilled) => {
-          if (!isFulfilled) {
-            console.warn('Structural edit was not fulfilled!');
+    // Nothing to do?
+    if (!modelEdits || modelEdits.length == 0) {
+      return Promise.resolve(true);
+    }
+    // Reformatting will retouch the spots affected by edits.
+    // The edits are stated in terms of the document-as-it-is, before any of the edits.
+    // Reformat's offsets must be in post-edit terms (i.e., "a later as-is", before reformatting).
+    // Translate pre-edit to post-edit offsets:
+    const ranges: ModelEditRange[] = reformatListRangesForEdits(this, modelEdits);
+    const ranges2: ModelEditRange[] = ranges
+      ? ranges
+      : [[0, this.document.document.getText().length]];
+    const postEditPlanDraft = {
+      forDocumentVersion: this.document.document.version + 1, // none of this matters if another edit intervenes
+      reformatOffsets: options.skipFormat
+        ? undefined
+        : selectionsAfterEdits(
+            modelEdits,
+            ranges2.flatMap((r: ModelEditRange): ModelEditSelection[] => {
+              return [
+                new ModelEditSelection(r[0], r[0], r[0], r[0]),
+                new ModelEditSelection(r[1], r[1], r[1], r[1]),
+              ];
+            })
+          ).flatMap((sel) => [sel.anchor, sel.active]),
+      selections: options.selections,
+    };
+    const postEditPlan =
+      postEditPlanDraft.reformatOffsets || postEditPlanDraft.selections
+        ? postEditPlanDraft
+        : undefined;
+    // Do the edits (with undoStopAfter=false if we will reformat,
+    // to include the reformatting in the same undo-unit as the edit).
+    const editor = utilities.getActiveTextEditor();
+    const editCompletion = editor.edit(
+      (builder) => {
+        this.editNowTextOnly(modelEdits, { builder: builder, ...options });
+      },
+      { undoStopAfter: options.skipFormat, undoStopBefore }
+    );
+    if (!postEditPlan) {
+      return editCompletion;
+    } else {
+      return editCompletion.then((isFulfilled) => {
+        if (!isFulfilled) {
+          console.warn('Structural edit was not fulfilled!');
+        } else {
+          if (postEditPlan.forDocumentVersion != this.document.document.version) {
+            console.warn('Post-edit preempted by another edit');
           } else {
-            if (postEditPlan.forDocumentVersion != this.document.document.version) {
-              console.warn('Post-edit preempted by another edit');
-            } else {
-              // 1. Apply selection overrides.
-              // 2. Reformat, adjusting the new selections.
-              if (postEditPlan.selections) {
-                this.document.selections = postEditPlan.selections;
-              }
-              if (postEditPlan.reformatOffsets) {
-                {
-                  return this.postEditReformat(editor, postEditPlan.reformatOffsets).then(
-                    (reformatFulfilled) => {
-                      if (!reformatFulfilled) {
-                        console.warn('Post-structural-edit reformat was not fulfilled!');
-                      }
-                      return true; // because the structural edit is the important thing, and it was fulfilled
+            // 1. Apply selection overrides.
+            // 2. Reformat, adjusting the new selections.
+            if (postEditPlan.selections) {
+              this.document.selections = postEditPlan.selections;
+            }
+            if (postEditPlan.reformatOffsets) {
+              {
+                return this.postEditReformat(editor, postEditPlan.reformatOffsets).then(
+                  (reformatFulfilled) => {
+                    if (!reformatFulfilled) {
+                      console.warn('Post-structural-edit reformat was not fulfilled!');
                     }
-                  );
-                }
+                    return true; // because the structural edit is the important thing, and it was fulfilled
+                  }
+                );
               }
             }
           }
-          return isFulfilled;
-        });
-      }
-    } catch (oops) {
-      console.error('edit encountered a problem:' + oops.message);
-      console.dir(oops);
+        }
+        return isFulfilled;
+      });
     }
   }
 
